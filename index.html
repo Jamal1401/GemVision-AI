@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GemVision AI - Weave Your Dream Jewelry</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;600;700&family=Poppins:wght@300;400;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="index.css">
+    <script type="importmap">
+      {
+        "imports": {
+          "@google/genai": "https://esm.sh/@google/genai@^0.12.0"
+        }
+      }
+    </script>
+</head>
+<body>
+    <div id="root">
+        <header>
+            <div class="logo">
+                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M12 2L2 8.5L12 22L22 8.5L12 2Z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>
+                    <path d="M2 8.5L12 15L22 8.5" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>
+                    <path d="M12 22V15" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>
+                </svg>
+                <h1>GemVision AI</h1>
+            </div>
+            <nav>
+                <a href="#">Gallery</a>
+                <a href="#">Designs</a>
+                <a href="#" class="login-btn">Login / Register</a>
+            </nav>
+        </header>
+
+        <main>
+            <section class="hero">
+                <h2>Weave Your Dream Jewelry</h2>
+                <p>Upload a photo of your gemstone and let our AI envision the perfect design. From classic elegance to modern artistry, discover the possibilities.</p>
+            </section>
+
+            <section id="generator" class="generator-section">
+                <div class="form-container">
+                    <h3>Create Your Design</h3>
+                    <div class="input-group file-input-group">
+                         <label for="file-upload" class="file-upload-label">
+                            <span id="file-name">Upload Gemstone Photo</span>
+                        </label>
+                        <input type="file" id="file-upload" accept="image/*" aria-label="Upload gemstone photo">
+                        <button id="camera-button" class="camera-btn" aria-label="Use Camera">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path><circle cx="12" cy="13" r="4"></circle></svg>
+                        </button>
+                    </div>
+                     <div id="image-preview-container" class="image-preview-container" style="display: none;">
+                        <img id="image-preview" src="#" alt="Image preview" />
+                        <button id="remove-image-btn" aria-label="Remove image">&times;</button>
+                    </div>
+                    <div class="input-group">
+                        <label for="gem-details">Gemstone Details (e.g., 2 carat, ruby red, oval cut)</label>
+                        <input type="text" id="gem-details" placeholder="Describe size, color, shape...">
+                    </div>
+                    <div class="input-group">
+                        <div class="label-with-action">
+                           <label for="design-prompt">Weave Your Dream Design</label>
+                           <button id="dream-btn" class="dream-button">✨ Let AI Dream</button>
+                        </div>
+                        <textarea id="design-prompt" rows="5" placeholder="Describe your idea or click 'Let AI Dream' for inspiration..."></textarea>
+                    </div>
+                    <button id="generate-btn" class="generate-button" disabled>Generate Designs</button>
+                </div>
+            </section>
+
+            <section id="results-gallery" class="results-gallery">
+                <h2>Inspiration Gallery</h2>
+                 <div id="gallery-content" class="gallery-grid">
+                    <!-- Example cards -->
+                    <article class="design-card example">
+                        <img src="https://storage.googleapis.com/gemini-ui-params/f895c1c2-3e3c-4a3d-9f44-8846b102834d" alt="Celestial Azure Ring">
+                        <div class="card-content">
+                            <h3>Celestial Azure Ring</h3>
+                            <p>A magnificent sapphire set in a halo of diamonds, crafted from 18k white gold. The band features intricate milgrain detailing, evoking a timeless elegance.</p>
+                            <h4>Blueprint:</h4>
+                            <ul>
+                                <li><strong>Metal:</strong> 18k White Gold</li>
+                                <li><strong>Center Stone:</strong> 3.5 Carat Blue Sapphire</li>
+                                <li><strong>Accent Stones:</strong> 0.75 Carat Total Weight, VS1 Clarity Diamonds</li>
+                            </ul>
+                        </div>
+                    </article>
+                    <article class="design-card example">
+                        <img src="https://storage.googleapis.com/gemini-ui-params/d5951d8b-5a1d-444c-a496-d444458f62f3" alt="Emerald Fire Pendant">
+                        <div class="card-content">
+                            <h3>Emerald Fire Pendant</h3>
+                            <p>This striking emerald-cut gemstone is the centerpiece of a modern platinum pendant. Its minimalist design emphasizes the stone's natural beauty and fire.</p>
+                             <h4>Blueprint:</h4>
+                            <ul>
+                                <li><strong>Metal:</strong> Platinum 950</li>
+                                <li><strong>Center Stone:</strong> 5.0 Carat Colombian Emerald</li>
+                                <li><strong>Chain:</strong> 18-inch Platinum Cable Chain</li>
+                            </ul>
+                        </div>
+                    </article>
+                     <article class="design-card example">
+                        <img src="https://storage.googleapis.com/gemini-ui-params/554bb688-692e-4b47-b5b0-749e7b4e9f90" alt="Sunset Topaz Earrings">
+                        <div class="card-content">
+                            <h3>Sunset Topaz Earrings</h3>
+                            <p>A pair of dazzling topaz earrings set in warm 14k yellow gold. The design is inspired by the vibrant colors of a sunset, perfect for adding a touch of glamour.</p>
+                             <h4>Blueprint:</h4>
+                            <ul>
+                                <li><strong>Metal:</strong> 14k Yellow Gold</li>
+                                <li><strong>Stones:</strong> Two 2.0 Carat Imperial Topaz</li>
+                                <li><strong>Setting:</strong> Four-prong basket</li>
+                            </ul>
+                        </div>
+                    </article>
+                </div>
+            </section>
+        </main>
+        
+        <footer>
+            <p>&copy; 2024 GemVision AI. Designs are for illustrative purposes.</p>
+        </footer>
+
+        <div id="loading-overlay" class="loading-overlay" style="display: none;">
+            <div class="loader"></div>
+            <p id="loading-text">Weaving your designs...</p>
+        </div>
+
+        <div id="camera-modal" class="modal" style="display: none;">
+            <div class="modal-content">
+                <video id="camera-stream" autoplay playsinline></video>
+                <button id="capture-btn" class="generate-button">Capture</button>
+                <button id="close-modal-btn" class="close-btn">&times;</button>
+            </div>
+        </div>
+    </div>
+    <div id="notification-container"></div>
+    <script type="module" src="index.tsx"></script>
+</body>
+</html>
