@@ -263,7 +263,7 @@ input[type="file"] {
     background-color: #e74c3c;
 }
 
-.dream-button {
+.dream-button, .smart-details-button {
     background: none;
     border: 1px solid var(--primary-color);
     color: var(--primary-color);
@@ -275,12 +275,12 @@ input[type="file"] {
     transition: var(--transition-fast);
 }
 
-.dream-button:hover:not(:disabled) {
+.dream-button:hover:not(:disabled), .smart-details-button:hover:not(:disabled) {
     background-color: var(--secondary-color);
     transform: translateY(-1px);
 }
 
-.dream-button:disabled {
+.dream-button:disabled, .smart-details-button:disabled {
     opacity: 0.5;
     cursor: not-allowed;
 }
@@ -313,6 +313,60 @@ input[type="file"] {
     box-shadow: none;
 }
 
+/* Tooltip Styles */
+.has-tooltip {
+    position: relative;
+}
+
+/* The tooltip text box */
+.has-tooltip::after {
+    content: attr(data-tooltip);
+    position: absolute;
+    bottom: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--primary-color);
+    color: #fff;
+    padding: 6px 12px;
+    border-radius: 5px;
+    font-size: 0.9rem;
+    font-family: var(--font-secondary);
+    font-weight: 400;
+    line-height: 1.4;
+    white-space: nowrap;
+    margin-bottom: 10px; /* Gap + arrow height */
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+    transition: opacity 0.2s ease-in-out;
+    z-index: 1100;
+}
+
+/* The tooltip arrow */
+.has-tooltip::before {
+    content: '';
+    position: absolute;
+    bottom: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    margin-bottom: 4px; /* Position between element and text box */
+    border: 6px solid transparent;
+    border-top-color: var(--primary-color);
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+    transition: opacity 0.2s ease-in-out;
+    z-index: 1100;
+}
+
+/* Show on hover */
+.has-tooltip:hover::before,
+.has-tooltip:hover::after {
+    opacity: 1;
+    visibility: visible;
+}
+
+
 /* Results Gallery */
 .results-gallery {
     padding: 3rem 0;
@@ -336,6 +390,8 @@ input[type="file"] {
     overflow: hidden;
     box-shadow: var(--shadow-sm);
     transition: var(--transition-fast);
+    display: flex;
+    flex-direction: column;
     opacity: 0;
     animation: fadeIn 0.8s forwards;
 }
@@ -348,7 +404,6 @@ input[type="file"] {
 .design-card.newly-generated {
     animation: fadeInHighlight 2s ease-out;
 }
-
 
 @keyframes fadeIn {
     from { opacity: 0; transform: translateY(20px); }
@@ -367,14 +422,65 @@ input[type="file"] {
     box-shadow: var(--shadow-md);
 }
 
-.design-card img {
+.media-container {
     width: 100%;
     height: 250px;
-    object-fit: cover;
+    position: relative;
+    background-color: #f0f0f0;
 }
+
+.media-container img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    cursor: zoom-in;
+    display: block;
+}
+
+.viewer-container {
+    width: 100%;
+    height: 100%;
+    display: none; /* Hidden by default */
+}
+
+.viewer-container canvas {
+    display: block;
+    width: 100%;
+    height: 100%;
+}
+
+/* 3D View Toggling */
+.design-card.view-3d .media-container img {
+    display: none;
+}
+.design-card.view-3d .viewer-container {
+    display: block;
+}
+
+
+.view-toggle-btn {
+    position: absolute;
+    bottom: 10px;
+    right: 10px;
+    background-color: rgba(0, 0, 0, 0.6);
+    color: white;
+    border: none;
+    border-radius: 20px;
+    padding: 0.4rem 0.8rem;
+    font-size: 0.8rem;
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+    z-index: 10;
+}
+
+.view-toggle-btn:hover {
+    background-color: rgba(0, 0, 0, 0.8);
+}
+
 
 .card-content {
     padding: 1.5rem;
+    flex-grow: 1;
 }
 
 .card-content h3 {
@@ -498,6 +604,107 @@ footer {
     text-decoration: none;
 }
 
+/* Image Zoom Modal */
+.zoom-modal {
+    position: fixed;
+    z-index: 2001;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0,0,0,0.85);
+    backdrop-filter: blur(5px);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.3s ease, visibility 0s linear 0.3s;
+    padding: 2rem;
+}
+
+.zoom-modal.show {
+    opacity: 1;
+    visibility: visible;
+    transition: opacity 0.3s ease;
+}
+
+.zoom-content-wrapper {
+    display: flex;
+    align-items: center;
+    gap: 2rem;
+    width: 100%;
+    max-width: 1200px;
+    max-height: 100%;
+}
+
+.zoomed-image-content {
+    flex-shrink: 1;
+    max-width: 65%;
+    max-height: 90vh;
+    object-fit: contain;
+    display: block;
+    transition: transform 0.3s ease;
+    transform: scale(0.8);
+    border-radius: 8px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.4);
+}
+
+.zoom-modal.show .zoomed-image-content {
+    transform: scale(1);
+}
+
+.zoom-analysis-container {
+    flex-basis: 35%;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 8px;
+    padding: 1.5rem;
+    color: #f1f1f1;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    max-height: 90vh;
+    overflow-y: auto;
+}
+
+.zoom-analysis-container h3 {
+    color: #fff;
+    border-bottom: 1px solid rgba(255,255,255,0.3);
+    padding-bottom: 0.5rem;
+}
+
+#zoom-analysis-result {
+    line-height: 1.7;
+    font-size: 0.95rem;
+    flex-grow: 1;
+}
+
+#analyze-gem-btn {
+    font-size: 1rem;
+    padding: 0.8rem;
+}
+
+
+.zoom-close-btn {
+    position: absolute;
+    top: 20px;
+    right: 35px;
+    color: #f1f1f1;
+    font-size: 40px;
+    font-weight: bold;
+    transition: 0.3s;
+    cursor: pointer;
+    background: none;
+    border: none;
+    line-height: 1;
+}
+
+.zoom-close-btn:hover,
+.zoom-close-btn:focus {
+    color: #bbb;
+    text-decoration: none;
+}
+
 
 /* Notification System */
 #notification-container {
@@ -540,6 +747,23 @@ footer {
 
 
 /* Responsive Design */
+@media (max-width: 900px) {
+    .zoom-content-wrapper {
+        flex-direction: column;
+        max-height: 90vh;
+        overflow-y: auto;
+    }
+    .zoomed-image-content {
+        max-width: 100%;
+        max-height: 50vh;
+    }
+    .zoom-analysis-container {
+        flex-basis: auto;
+        width: 100%;
+    }
+}
+
+
 @media (max-width: 768px) {
     header {
         flex-direction: column;

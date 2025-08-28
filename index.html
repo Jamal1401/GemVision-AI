@@ -9,12 +9,15 @@
     <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;600;700&family=Poppins:wght@300;400;600&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="index.css">
     <script type="importmap">
-      {
-        "imports": {
-          "@google/genai": "https://esm.sh/@google/genai@^0.12.0"
-        }
-      }
-    </script>
+{
+  "imports": {
+    "@google/genai": "https://esm.sh/@google/genai@^0.12.0",
+    "three": "https://esm.sh/three@^0.164.0",
+    "three/addons/": "https://esm.sh/three@^0.164.0/examples/jsm/",
+    "three/": "https://aistudiocdn.com/three@^0.179.1/"
+  }
+}
+</script>
 </head>
 <body>
     <div id="root">
@@ -44,11 +47,11 @@
                 <div class="form-container">
                     <h3>Create Your Design</h3>
                     <div class="input-group file-input-group">
-                         <label for="file-upload" class="file-upload-label">
+                         <label for="file-upload" class="file-upload-label has-tooltip" data-tooltip="Click to upload a photo of your gemstone from your device.">
                             <span id="file-name">Upload Gemstone Photo</span>
                         </label>
                         <input type="file" id="file-upload" accept="image/*" aria-label="Upload gemstone photo">
-                        <button id="camera-button" class="camera-btn" aria-label="Use Camera">
+                        <button id="camera-button" class="camera-btn has-tooltip" aria-label="Use Camera" data-tooltip="Use your device's camera to take a photo of your gemstone.">
                             <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path><circle cx="12" cy="13" r="4"></circle></svg>
                         </button>
                     </div>
@@ -57,17 +60,24 @@
                         <button id="remove-image-btn" aria-label="Remove image">&times;</button>
                     </div>
                     <div class="input-group">
-                        <label for="gem-details">Gemstone Details (e.g., 2 carat, ruby red, oval cut)</label>
-                        <input type="text" id="gem-details" placeholder="Describe size, color, shape...">
+                        <div class="label-with-action">
+                            <label for="gem-type">Gemstone Type & Features</label>
+                             <button id="smart-details-btn" class="smart-details-button has-tooltip" disabled data-tooltip="Let AI analyze your uploaded photo to automatically fill in the gemstone's details.">🔮 Smart Details</button>
+                        </div>
+                        <input type="text" id="gem-type" class="has-tooltip" placeholder="e.g., Ruby, vibrant red, oval cut..." data-tooltip="Describe the gemstone's type, color, and cut (e.g., 'Vibrant red ruby, oval cut').">
+                    </div>
+                    <div class="input-group">
+                         <label for="gem-weight">Estimated Carat Weight</label>
+                        <input type="text" id="gem-weight" class="has-tooltip" placeholder="e.g., 2 carats" data-tooltip="Enter the estimated weight of the gemstone in carats (e.g., '2 carats').">
                     </div>
                     <div class="input-group">
                         <div class="label-with-action">
                            <label for="design-prompt">Weave Your Dream Design</label>
-                           <button id="dream-btn" class="dream-button">✨ Let AI Dream</button>
+                           <button id="dream-btn" class="dream-button has-tooltip" data-tooltip="Let AI generate a creative design prompt for you based on your gemstone photo.">✨ Let AI Dream</button>
                         </div>
-                        <textarea id="design-prompt" rows="5" placeholder="Describe your idea or click 'Let AI Dream' for inspiration..."></textarea>
+                        <textarea id="design-prompt" class="has-tooltip" rows="5" placeholder="Describe your idea or click 'Let AI Dream' for inspiration..." data-tooltip="Describe the jewelry design you envision. Be as descriptive as you like!"></textarea>
                     </div>
-                    <button id="generate-btn" class="generate-button" disabled>Generate Designs</button>
+                    <button id="generate-btn" class="generate-button has-tooltip" disabled data-tooltip="Generate unique jewelry designs based on your gemstone and prompt.">Generate Designs</button>
                 </div>
             </section>
 
@@ -76,7 +86,9 @@
                  <div id="gallery-content" class="gallery-grid">
                     <!-- Example cards -->
                     <article class="design-card example">
-                        <img src="https://storage.googleapis.com/gemini-ui-params/f895c1c2-3e3c-4a3d-9f44-8846b102834d" alt="Celestial Azure Ring">
+                        <div class="media-container">
+                            <img src="https://storage.googleapis.com/gemini-ui-params/f895c1c2-3e3c-4a3d-9f44-8846b102834d" alt="Celestial Azure Ring">
+                        </div>
                         <div class="card-content">
                             <h3>Celestial Azure Ring</h3>
                             <p>A magnificent sapphire set in a halo of diamonds, crafted from 18k white gold. The band features intricate milgrain detailing, evoking a timeless elegance.</p>
@@ -89,7 +101,9 @@
                         </div>
                     </article>
                     <article class="design-card example">
-                        <img src="https://storage.googleapis.com/gemini-ui-params/d5951d8b-5a1d-444c-a496-d444458f62f3" alt="Emerald Fire Pendant">
+                        <div class="media-container">
+                            <img src="https://storage.googleapis.com/gemini-ui-params/d5951d8b-5a1d-444c-a496-d444458f62f3" alt="Emerald Fire Pendant">
+                        </div>
                         <div class="card-content">
                             <h3>Emerald Fire Pendant</h3>
                             <p>This striking emerald-cut gemstone is the centerpiece of a modern platinum pendant. Its minimalist design emphasizes the stone's natural beauty and fire.</p>
@@ -102,7 +116,9 @@
                         </div>
                     </article>
                      <article class="design-card example">
-                        <img src="https://storage.googleapis.com/gemini-ui-params/554bb688-692e-4b47-b5b0-749e7b4e9f90" alt="Sunset Topaz Earrings">
+                         <div class="media-container">
+                            <img src="https://storage.googleapis.com/gemini-ui-params/554bb688-692e-4b47-b5b0-749e7b4e9f90" alt="Sunset Topaz Earrings">
+                         </div>
                         <div class="card-content">
                             <h3>Sunset Topaz Earrings</h3>
                             <p>A pair of dazzling topaz earrings set in warm 14k yellow gold. The design is inspired by the vibrant colors of a sunset, perfect for adding a touch of glamour.</p>
@@ -132,6 +148,19 @@
                 <video id="camera-stream" autoplay playsinline></video>
                 <button id="capture-btn" class="generate-button">Capture</button>
                 <button id="close-modal-btn" class="close-btn">&times;</button>
+            </div>
+        </div>
+        
+        <!-- Image Zoom Modal -->
+        <div id="image-zoom-modal" class="zoom-modal">
+            <span id="zoom-close-btn" class="zoom-close-btn">&times;</span>
+            <div class="zoom-content-wrapper">
+                <img id="zoomed-image" class="zoomed-image-content" src="" alt="Zoomed Design">
+                <div id="zoom-analysis-container" class="zoom-analysis-container">
+                    <h3>AI Gemstone Analysis</h3>
+                    <p id="zoom-analysis-result">Click 'Analyze Gem' to learn more about this stone.</p>
+                    <button id="analyze-gem-btn" class="generate-button">Analyze Gem</button>
+                </div>
             </div>
         </div>
     </div>

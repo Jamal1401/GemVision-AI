@@ -3,15 +3,19 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 import { GoogleGenAI, Type } from "@google/genai";
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 
 document.addEventListener('DOMContentLoaded', () => {
     // --- DOM Element Selectors ---
     const fileUpload = document.getElementById('file-upload') as HTMLInputElement;
     const cameraButton = document.getElementById('camera-button') as HTMLButtonElement;
-    const gemDetailsInput = document.getElementById('gem-details') as HTMLInputElement;
+    const gemTypeInput = document.getElementById('gem-type') as HTMLInputElement;
+    const gemWeightInput = document.getElementById('gem-weight') as HTMLInputElement;
     const designPromptInput = document.getElementById('design-prompt') as HTMLTextAreaElement;
     const generateBtn = document.getElementById('generate-btn') as HTMLButtonElement;
     const dreamBtn = document.getElementById('dream-btn') as HTMLButtonElement;
+    const smartDetailsBtn = document.getElementById('smart-details-btn') as HTMLButtonElement;
     const galleryContent = document.getElementById('gallery-content') as HTMLDivElement;
     const loadingOverlay = document.getElementById('loading-overlay') as HTMLDivElement;
     const loadingText = document.getElementById('loading-text') as HTMLParagraphElement;
@@ -27,6 +31,14 @@ document.addEventListener('DOMContentLoaded', () => {
     const cameraStream = document.getElementById('camera-stream') as HTMLVideoElement;
     const captureBtn = document.getElementById('capture-btn') as HTMLButtonElement;
     const closeModalBtn = document.getElementById('close-modal-btn') as HTMLButtonElement;
+
+    // Image Zoom Modal Elements
+    const imageZoomModal = document.getElementById('image-zoom-modal') as HTMLDivElement;
+    const zoomedImage = document.getElementById('zoomed-image') as HTMLImageElement;
+    const zoomCloseBtn = document.getElementById('zoom-close-btn') as HTMLSpanElement;
+    const analyzeGemBtn = document.getElementById('analyze-gem-btn') as HTMLButtonElement;
+    const zoomAnalysisResult = document.getElementById('zoom-analysis-result') as HTMLParagraphElement;
+
 
     // --- State Management ---
     let uploadedFile: {
@@ -109,6 +121,7 @@ document.addEventListener('DOMContentLoaded', () => {
             imagePreviewContainer.style.display = 'block';
             fileNameSpan.textContent = file.name;
             dreamBtn.disabled = false;
+            smartDetailsBtn.disabled = false;
             updateGenerateButtonState();
         };
         reader.readAsDataURL(file);
@@ -124,6 +137,7 @@ document.addEventListener('DOMContentLoaded', () => {
         imagePreview.src = '#';
         fileNameSpan.textContent = 'Upload Gemstone Photo';
         dreamBtn.disabled = true;
+        smartDetailsBtn.disabled = true;
         updateGenerateButtonState();
     }
 
@@ -145,6 +159,91 @@ document.addEventListener('DOMContentLoaded', () => {
             loadingOverlay.style.display = 'none';
         }
     }
+    
+    /**
+     * Initializes a 3D viewer in a given container.
+     * @param container The container element for the 3D canvas.
+     * @param imageUrl The URL of the texture image.
+     * @param design The design data, used to infer geometry.
+     */
+    function init3DViewer(container: HTMLDivElement, imageUrl: string, design: Design) {
+        // Scene
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0xf0f0f0);
+
+        // Camera
+        const camera = new THREE.PerspectiveCamera(75, container.clientWidth / container.clientHeight, 0.1, 1000);
+        camera.position.z = 3;
+
+        // Renderer
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(container.clientWidth, container.clientHeight);
+        container.appendChild(renderer.domElement);
+
+        // Controls
+        const controls = new OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true;
+        controls.dampingFactor = 0.05;
+        controls.screenSpacePanning = false;
+        controls.minDistance = 1;
+        controls.maxDistance = 10;
+        
+        // Lighting
+        const ambientLight = new THREE.AmbientLight(0xffffff, 1.5);
+        scene.add(ambientLight);
+        const directionalLight = new THREE.DirectionalLight(0xffffff, 2);
+        directionalLight.position.set(5, 5, 5);
+        scene.add(directionalLight);
+
+        // Texture
+        const textureLoader = new THREE.TextureLoader();
+        const texture = textureLoader.load(imageUrl);
+        texture.colorSpace = THREE.SRGBColorSpace;
+        
+        // Material
+        const material = new THREE.MeshStandardMaterial({
+            map: texture,
+            metalness: 0.3,
+            roughness: 0.2
+        });
+
+        // Geometry (inferred from design name)
+        let geometry: THREE.BufferGeometry;
+        const nameLower = design.name.toLowerCase();
+        if (nameLower.includes('ring')) {
+            geometry = new THREE.TorusGeometry(1, 0.15, 24, 100);
+            material.side = THREE.DoubleSide; // Show texture inside the ring
+        } else { // Default for pendants, earrings etc.
+            geometry = new THREE.PlaneGeometry(2, 2);
+        }
+
+        const mesh = new THREE.Mesh(geometry, material);
+        if (nameLower.includes('ring')) {
+            mesh.rotation.x = Math.PI / 2; // Rotate ring to be upright
+        }
+        scene.add(mesh);
+        
+        let animationFrameId: number;
+
+        // Animation Loop
+        function animate() {
+            animationFrameId = requestAnimationFrame(animate);
+            controls.update(); // only required if controls.enableDamping = true
+            renderer.render(scene, camera);
+        }
+        animate();
+        
+        // Store a cleanup function on the container
+        (container as any).cleanup = () => {
+            cancelAnimationFrame(animationFrameId);
+            renderer.dispose();
+            geometry.dispose();
+            material.dispose();
+            texture.dispose();
+            container.innerHTML = '';
+        };
+    }
+
 
     /**
      * Creates an HTML card for a generated design and appends it to the gallery.
@@ -154,8 +253,16 @@ document.addEventListener('DOMContentLoaded', () => {
     function createDesignCard(design: Design, imageUrl: string) {
         const card = document.createElement('article');
         card.className = 'design-card newly-generated';
+        // Store data on the element for later use (e.g., 3D viewer)
+        card.dataset.design = JSON.stringify(design);
+        card.dataset.imageUrl = imageUrl;
+        
         card.innerHTML = `
-            <img src="${imageUrl}" alt="${design.name}">
+            <div class="media-container">
+                <img src="${imageUrl}" alt="${design.name}">
+                <div class="viewer-container"></div>
+                <button class="view-toggle-btn" data-view="2d">View in 3D</button>
+            </div>
             <div class="card-content">
                 <h3>${design.name}</h3>
                 <p>${design.description}</p>
@@ -194,6 +301,62 @@ document.addEventListener('DOMContentLoaded', () => {
             stream = null;
         }
         cameraModal.style.display = 'none';
+    }
+
+    /**
+     * Asks the AI to analyze the gemstone image and return details.
+     */
+    async function getSmartDetails() {
+        if (!uploadedFile) {
+            showNotification("Please upload a gemstone image first.");
+            return;
+        }
+
+        const originalButtonText = smartDetailsBtn.innerHTML;
+        smartDetailsBtn.disabled = true;
+        smartDetailsBtn.innerHTML = 'Analyzing...';
+
+        try {
+            const imagePart = {
+                inlineData: {
+                    mimeType: uploadedFile.mimeType,
+                    data: uploadedFile.base64,
+                },
+            };
+            const prompt = `Analyze the provided image of a gemstone. Identify its key visual characteristics (like primary color and shape/cut) and estimate its carat weight.`;
+
+            const response = await ai.models.generateContent({
+                model: "gemini-2.5-flash",
+                contents: { parts: [imagePart, { text: prompt }] },
+                 config: {
+                    responseMimeType: "application/json",
+                    responseSchema: {
+                        type: Type.OBJECT,
+                        properties: {
+                            gemstoneDetails: { 
+                                type: Type.STRING,
+                                description: "A description of the gem's type, color, and cut. e.g. 'Vibrant red ruby, oval cut'."
+                            },
+                            caratWeight: { 
+                                type: Type.STRING,
+                                description: "An estimated weight in carats. e.g. 'approximately 2 carats'."
+                            }
+                        }
+                    }
+                }
+            });
+            
+            const result = JSON.parse(response.text.trim());
+            gemTypeInput.value = result.gemstoneDetails || '';
+            gemWeightInput.value = result.caratWeight || '';
+
+        } catch (error) {
+            console.error("Error getting smart details:", error);
+            showNotification("The AI couldn't analyze the gem. Please try again or enter details manually.");
+        } finally {
+            smartDetailsBtn.disabled = false;
+            smartDetailsBtn.innerHTML = originalButtonText;
+        }
     }
     
     /**
@@ -261,7 +424,8 @@ document.addEventListener('DOMContentLoaded', () => {
             const prompt = `
                 Based on the uploaded image of a gemstone and the user's preferences, generate 3 distinct jewelry design concepts.
                 User preferences:
-                - Gemstone details: ${gemDetailsInput.value || 'Not specified'}
+                - Gemstone: ${gemTypeInput.value || 'Not specified'}
+                - Weight: ${gemWeightInput.value || 'Not specified'}
                 - Desired design: ${designPromptInput.value}
                 
                 For each concept, provide a creative name, a captivating description, the metals used, a brief design blueprint, and a detailed, artistic prompt for an image generation model to create a photorealistic image of the final product.
@@ -332,6 +496,74 @@ document.addEventListener('DOMContentLoaded', () => {
             }, 100);
         }
     }
+    
+    /**
+     * Opens the image zoom modal with the specified image source.
+     * @param src The source URL of the image to display.
+     */
+    function openImageZoom(src: string) {
+        zoomedImage.src = src;
+        // Reset analysis content
+        zoomAnalysisResult.textContent = "Click 'Analyze Gem' to learn more about this stone.";
+        analyzeGemBtn.disabled = false;
+        analyzeGemBtn.textContent = 'Analyze Gem';
+        imageZoomModal.classList.add('show');
+        document.body.style.overflow = 'hidden';
+    }
+
+    /**
+     * Closes the image zoom modal.
+     */
+    function closeImageZoom() {
+        imageZoomModal.classList.remove('show');
+        document.body.style.overflow = 'auto';
+    }
+
+     /**
+     * Analyzes the currently zoomed-in image using AI.
+     */
+    async function analyzeZoomedImage() {
+        const imageSrc = zoomedImage.src;
+        if (!imageSrc || imageSrc.startsWith('#')) {
+            showNotification("No image to analyze.");
+            return;
+        }
+
+        analyzeGemBtn.disabled = true;
+        analyzeGemBtn.textContent = 'Analyzing...';
+        zoomAnalysisResult.textContent = 'The AI is inspecting the gemstone...';
+
+        try {
+            // Convert data URL to the format needed by the API
+            const parts = imageSrc.split(',');
+            const mimeType = parts[0].match(/:(.*?);/)?.[1];
+            const base64Data = parts[1];
+
+            if (!mimeType || !base64Data) {
+                throw new Error("Could not parse image data.");
+            }
+
+            const imagePart = {
+                inlineData: { mimeType, data: base64Data },
+            };
+            const prompt = `Identify the gemstone in this image. Provide a detailed analysis, including its likely type, cut, color, clarity, and any other visible characteristics like inclusions or unique features. Format the response as a paragraph.`;
+
+            const response = await ai.models.generateContent({
+                model: "gemini-2.5-flash",
+                contents: { parts: [imagePart, { text: prompt }] },
+            });
+
+            zoomAnalysisResult.textContent = response.text.trim();
+
+        } catch (error) {
+            console.error("Error analyzing zoomed image:", error);
+            zoomAnalysisResult.textContent = "Sorry, the AI analysis failed. Please try again.";
+        } finally {
+            analyzeGemBtn.disabled = false;
+            analyzeGemBtn.textContent = 'Analyze Again';
+        }
+    }
+
 
     // --- Event Listeners ---
     fileUpload.addEventListener('change', () => {
@@ -343,6 +575,7 @@ document.addEventListener('DOMContentLoaded', () => {
     designPromptInput.addEventListener('input', updateGenerateButtonState);
     generateBtn.addEventListener('click', generateDesigns);
     dreamBtn.addEventListener('click', dreamUpPrompt);
+    smartDetailsBtn.addEventListener('click', getSmartDetails);
 
 
     // Camera Modal Listeners
@@ -365,7 +598,57 @@ document.addEventListener('DOMContentLoaded', () => {
         stopCamera();
     });
 
+    // Gallery Listeners (using event delegation for zoom and 3D toggle)
+    galleryContent.addEventListener('click', (e) => {
+        const target = e.target as HTMLElement;
+
+        // Handle 3D View Toggle
+        if (target.classList.contains('view-toggle-btn')) {
+            const card = target.closest('.design-card') as HTMLElement;
+            const viewerContainer = card.querySelector('.viewer-container') as HTMLDivElement;
+            const is3D = target.dataset.view === '3d';
+
+            if (is3D) {
+                // Switch back to 2D
+                if ((viewerContainer as any).cleanup) {
+                    (viewerContainer as any).cleanup();
+                }
+                card.classList.remove('view-3d');
+                target.dataset.view = '2d';
+                target.textContent = 'View in 3D';
+            } else {
+                // Switch to 3D
+                const design: Design = JSON.parse(card.dataset.design || '{}');
+                const imageUrl = card.dataset.imageUrl || '';
+                // Initialize viewer only if it doesn't have a canvas yet
+                if (viewerContainer && !viewerContainer.querySelector('canvas')) {
+                    init3DViewer(viewerContainer, imageUrl, design);
+                }
+                card.classList.add('view-3d');
+                target.dataset.view = '3d';
+                target.textContent = 'View in 2D';
+            }
+            return; // Stop further processing
+        }
+        
+        // Handle Image Zoom
+        if (target.tagName === 'IMG' && target.closest('.design-card')) {
+            openImageZoom((target as HTMLImageElement).src);
+        }
+    });
+
+    zoomCloseBtn.addEventListener('click', closeImageZoom);
+    imageZoomModal.addEventListener('click', (e) => {
+        // Close if the click is on the modal background, not the content wrapper
+        if (e.target === imageZoomModal) {
+            closeImageZoom();
+        }
+    });
+    analyzeGemBtn.addEventListener('click', analyzeZoomedImage);
+
+
     // --- Initial State ---
     dreamBtn.disabled = true;
+    smartDetailsBtn.disabled = true;
     updateGenerateButtonState();
 });
