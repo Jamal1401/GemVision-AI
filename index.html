@@ -8,6 +8,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;600;700&family=Poppins:wght@300;400;600&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="index.css">
+    <script src="https://js.stripe.com/v3/"></script>
     <script type="importmap">
 {
   "imports": {
@@ -165,6 +166,12 @@
 
             <section id="pricing-section" class="pricing-section">
                 <h2>Find a Plan That's Right For You</h2>
+                <div class="pricing-header">
+                    <div class="currency-switcher" id="currency-switcher">
+                        <button data-currency="usd" class="active">USD</button>
+                        <button data-currency="inr">INR</button>
+                    </div>
+                </div>
                 <div class="pricing-grid">
                     <div class="pricing-tier">
                         <h3>Free</h3>
@@ -182,7 +189,7 @@
                     </div>
                     <div class="pricing-tier recommended">
                         <h3>Pro</h3>
-                        <div class="price">$7<span>/month</span></div>
+                        <div class="price" data-price-usd="7" data-price-inr="599">$7<span>/month</span></div>
                         <p>For enthusiasts and professionals who need more power.</p>
                         <ul>
                             <li>✔️ 50 AI design generations / month</li>
@@ -190,11 +197,11 @@
                             <li>✔️ Full access to all jewelry styles</li>
                             <li>✔️ No watermarks</li>
                         </ul>
-                        <button class="pricing-button" data-plan="pro">Choose Pro</button>
+                        <button class="pricing-button" data-plan="pro" data-plan-name="Pro Plan" data-price-usd-cents="700" data-price-inr-cents="59900">Choose Pro</button>
                     </div>
                     <div class="pricing-tier">
                         <h3>Elite</h3>
-                        <div class="price">$14<span>/month</span></div>
+                        <div class="price" data-price-usd="14" data-price-inr="1199">$14<span>/month</span></div>
                         <p>The ultimate toolkit for designers and businesses.</p>
                         <ul>
                             <li>✔️ Unlimited AI design generations</li>
@@ -203,7 +210,7 @@
                             <li>✔️ Priority customer support</li>
                             <li>✔️ Early access to new features</li>
                         </ul>
-                        <button class="pricing-button" data-plan="elite">Go Elite</button>
+                        <button class="pricing-button" data-plan="elite" data-plan-name="Elite Plan" data-price-usd-cents="1400" data-price-inr-cents="119900">Go Elite</button>
                     </div>
                 </div>
             </section>
@@ -220,6 +227,7 @@
         <div id="auth-modal" class="modal-container" style="display: none;">
             <div class="modal-content">
                 <button id="auth-close-btn" class="close-btn">&times;</button>
+                <!-- Login View -->
                 <div id="login-view">
                     <h2>Welcome Back</h2>
                     <form id="login-form">
@@ -235,14 +243,29 @@
                     </form>
                     <p class="auth-toggle-text">Don't have an account? <a href="#" id="show-register-view">Register</a></p>
                 </div>
+                <!-- Initial Register View (Email Only) -->
                 <div id="register-view" style="display: none;">
                     <h2>Create Your Account</h2>
                     <form id="register-form">
                         <div class="input-group">
-                            <label for="register-email">Email</label>
+                            <label for="register-email">Email Address</label>
                             <input type="email" id="register-email" required>
                         </div>
-                        <div class="input-group">
+                        <button type="submit" class="generate-button">Continue</button>
+                    </form>
+                    <p class="auth-toggle-text">Already have an account? <a href="#" id="show-login-view">Login</a></p>
+                </div>
+                <!-- Verify Email View (Simulation) -->
+                <div id="verify-email-view" style="display: none;">
+                    <h2>Check Your Inbox</h2>
+                    <p class="auth-subtext">We've sent a verification link to your email. Click the button below to complete your registration.</p>
+                    <button id="verify-email-btn" class="generate-button">Verify Email & Set Password</button>
+                </div>
+                <!-- Set Password View -->
+                <div id="set-password-view" style="display: none;">
+                    <h2>Set Your Password</h2>
+                    <form id="set-password-form">
+                         <div class="input-group">
                             <label for="register-password">Password</label>
                             <input type="password" id="register-password" minlength="6" required>
                         </div>
@@ -252,7 +275,6 @@
                         </div>
                         <button type="submit" class="generate-button">Create Account</button>
                     </form>
-                    <p class="auth-toggle-text">Already have an account? <a href="#" id="show-login-view">Login</a></p>
                 </div>
                  <p class="auth-disclaimer">
                     For demo purposes, your account is stored locally in your browser and is not accessible on other devices.
@@ -269,6 +291,10 @@
                     <div class="profile-info-group">
                         <label>Email</label>
                         <p id="profile-email"></p>
+                    </div>
+                     <div class="profile-info-group">
+                        <label>Current Plan</label>
+                        <p id="profile-plan" style="text-transform: capitalize;"></p>
                     </div>
                     <div class="profile-info-group">
                         <label>Free Attempts Remaining</label>
@@ -290,6 +316,47 @@
             </div>
         </div>
 
+        <!-- Payment Method Modal -->
+        <div id="payment-method-modal" class="modal-container" style="display: none;">
+            <div class="modal-content">
+                <button id="payment-method-close-btn" class="close-btn">&times;</button>
+                <h2 id="payment-method-title">Upgrade Plan</h2>
+                <p class="auth-subtext">Choose your preferred payment method.</p>
+                <div class="payment-method-options">
+                    <button id="pay-with-card-btn" class="generate-button">Pay with Credit Card</button>
+                    <button id="pay-with-crypto-btn" class="secondary-button">Pay with Cryptocurrency</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Crypto Payment Modal -->
+        <div id="crypto-payment-modal" class="modal-container" style="display: none;">
+            <div class="modal-content crypto-modal-content">
+                <button id="crypto-payment-close-btn" class="close-btn">&times;</button>
+                <h2 id="crypto-payment-title">Pay with Crypto</h2>
+                <div class="crypto-tabs">
+                    <button class="crypto-tab active" data-coin="BTC">BTC</button>
+                    <button class="crypto-tab" data-coin="ETH">ETH</button>
+                </div>
+                <div id="crypto-payment-details">
+                    <p>To complete your purchase, send the exact amount below to the specified address.</p>
+                    <div class="crypto-amount">
+                        <strong id="crypto-amount-value">0.000105 BTC</strong>
+                    </div>
+                    <div class="crypto-address-box">
+                        <label>Wallet Address</label>
+                        <div class="address-input-wrapper">
+                            <input type="text" id="crypto-wallet-address" value="bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh" readonly>
+                            <button id="copy-address-btn" class="copy-btn">Copy</button>
+                        </div>
+                    </div>
+                    <div class="crypto-qr-code">
+                        <svg viewBox="0 0 256 256" style="background:#fff"><path fill="#000" d="M128 112h16v16h-16z M112 112v16H96v-16z M96 112V96h16v16z M160 112h16v16h-16z M144 112v16h-16v-16z M96 128H80v16h16z M112 128v16H96v-16z M80 144h16v16H80z M96 144v16h16v-16z M128 144h16v16h-16z M112 144v16H96v-16z M144 144h16v16h-16z M160 144h16v16h-16z M176 144H160v16h16z M176 128h16v16h-16z M160 128v16H144v-16z M224 224V32H32v192zM48 48h160v160H48z M96 80H80V64h16z M80 80v16H64V80z M112 80h16v16h-16z M128 80H112V64h16z M80 96h16v16H80z M64 112h16v16H64z M80 112V96h16v16z M176 64h16v16h-16z M160 80V64h16v16z M192 80V64h16v16z M176 80h16v16h-16z M192 96h16v16h-16z M176 96v16H160v-16z M176 112h16v16h-16z M64 160h16v16H64z M80 176H64v16h16z M80 192h16v16H80z M112 176h16v16h-16z M96 176v16h16v-16z M128 176v16H112v-16z M144 176h16v16h-16z M160 176H144v16h16z M176 176h16v16h-16z M192 176v16h16v-16z"/></svg>
+                    </div>
+                </div>
+                <button id="confirm-crypto-payment-btn" class="generate-button">I've Sent the Payment</button>
+            </div>
+        </div>
 
         <div id="loading-overlay" class="loading-overlay" style="display: none;">
             <div class="loader"></div>

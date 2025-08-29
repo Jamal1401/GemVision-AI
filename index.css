@@ -828,9 +828,40 @@ input[type="file"] {
 .pricing-section h2 {
     text-align: center;
     font-size: 2.5rem;
-    margin-bottom: 2.5rem;
+    margin-bottom: 1rem;
     color: var(--accent-color);
 }
+
+.pricing-header {
+    display: flex;
+    justify-content: center;
+    margin-bottom: 2.5rem;
+}
+
+.currency-switcher {
+    display: flex;
+    background-color: var(--primary-color);
+    border-radius: 20px;
+    padding: 4px;
+    border: 1px solid var(--secondary-color);
+}
+
+.currency-switcher button {
+    background-color: transparent;
+    border: none;
+    color: var(--text-secondary-color);
+    padding: 0.5rem 1.2rem;
+    border-radius: 16px;
+    cursor: pointer;
+    font-weight: 600;
+    transition: var(--transition-fast);
+}
+
+.currency-switcher button.active {
+    background-color: var(--trust-accent-color);
+    color: var(--text-color);
+}
+
 
 .pricing-grid {
     display: grid;
@@ -972,6 +1003,17 @@ footer {
 #auth-modal .generate-button {
     margin-top: 1rem;
 }
+#verify-email-view {
+    text-align: center;
+}
+
+.auth-subtext {
+    color: var(--text-secondary-color);
+    margin-bottom: 2rem;
+    margin-top: -1rem;
+    text-align: center;
+}
+
 
 .auth-toggle-text {
     text-align: center;
@@ -1057,6 +1099,123 @@ footer {
 .logout-button:hover {
     background: var(--error-color);
     color: white;
+}
+
+/* --- Payment Modals --- */
+
+#payment-method-modal .modal-content h2 {
+    margin-bottom: 1rem;
+}
+
+.payment-method-options {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    margin-top: 2rem;
+}
+
+.payment-method-options .secondary-button {
+    font-size: 1.2rem;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+.crypto-modal-content {
+    max-width: 480px;
+}
+.crypto-modal-content h2 {
+    font-size: 1.8rem;
+    margin-bottom: 1rem;
+}
+
+.crypto-tabs {
+    display: flex;
+    justify-content: center;
+    margin-bottom: 1.5rem;
+    background-color: var(--primary-color);
+    border-radius: 8px;
+    padding: 5px;
+}
+.crypto-tab {
+    flex: 1;
+    padding: 0.75rem;
+    background: none;
+    border: none;
+    color: var(--text-secondary-color);
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    border-radius: 6px;
+    transition: var(--transition-fast);
+}
+.crypto-tab.active {
+    background-color: var(--trust-accent-color);
+    color: var(--text-color);
+}
+#crypto-payment-details {
+    text-align: center;
+}
+#crypto-payment-details p {
+    color: var(--text-secondary-color);
+    font-size: 0.9rem;
+    margin-bottom: 1.5rem;
+}
+.crypto-amount {
+    margin-bottom: 1.5rem;
+}
+.crypto-amount strong {
+    font-size: 1.5rem;
+    color: var(--accent-color);
+    font-family: var(--font-secondary);
+}
+.crypto-address-box {
+    margin-bottom: 1.5rem;
+}
+.crypto-address-box label {
+    display: block;
+    text-align: left;
+    margin-bottom: 0.5rem;
+    font-weight: 600;
+}
+.address-input-wrapper {
+    display: flex;
+    align-items: center;
+}
+.address-input-wrapper input {
+    flex-grow: 1;
+    padding: 0.8rem;
+    border: 1px solid #3c4a5c;
+    border-radius: 5px 0 0 5px;
+    font-family: monospace;
+    font-size: 0.9rem;
+    background-color: var(--primary-color);
+    color: var(--text-color);
+    border-right: none;
+}
+.copy-btn {
+    padding: 0.8rem 1rem;
+    background-color: var(--trust-accent-color);
+    color: var(--text-color);
+    border: 1px solid var(--trust-accent-color);
+    border-radius: 0 5px 5px 0;
+    cursor: pointer;
+    transition: var(--transition-fast);
+}
+.copy-btn:hover {
+    background-color: var(--trust-accent-hover);
+}
+.crypto-qr-code {
+    margin: 1.5rem auto;
+    width: 160px;
+    height: 160px;
+    background-color: white;
+    padding: 10px;
+    border-radius: 8px;
+}
+.crypto-qr-code svg {
+    width: 100%;
+    height: 100%;
+    display: block;
 }
 
 

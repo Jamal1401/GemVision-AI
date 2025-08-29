@@ -6,6 +6,9 @@ import { GoogleGenAI, Type } from "@google/genai";
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 
+// --- Stripe Type Declaration ---
+declare var Stripe: any;
+
 document.addEventListener('DOMContentLoaded', () => {
     // --- DOM Element Selectors ---
     const fileUpload = document.getElementById('file-upload') as HTMLInputElement;
@@ -59,16 +62,23 @@ document.addEventListener('DOMContentLoaded', () => {
     const authModal = document.getElementById('auth-modal') as HTMLDivElement;
     const authCloseBtn = document.getElementById('auth-close-btn') as HTMLButtonElement;
     const loginView = document.getElementById('login-view') as HTMLDivElement;
-    const registerView = document.getElementById('register-view') as HTMLDivElement;
     const showRegisterViewLink = document.getElementById('show-register-view') as HTMLAnchorElement;
     const showLoginViewLink = document.getElementById('show-login-view') as HTMLAnchorElement;
     const loginForm = document.getElementById('login-form') as HTMLFormElement;
-    const registerForm = document.getElementById('register-form') as HTMLFormElement;
     const loginEmailInput = document.getElementById('login-email') as HTMLInputElement;
     const loginPasswordInput = document.getElementById('login-password') as HTMLInputElement;
+    
+    // New Registration Flow Elements
+    const registerView = document.getElementById('register-view') as HTMLDivElement;
+    const verifyEmailView = document.getElementById('verify-email-view') as HTMLDivElement;
+    const setPasswordView = document.getElementById('set-password-view') as HTMLDivElement;
+    const registerForm = document.getElementById('register-form') as HTMLFormElement;
     const registerEmailInput = document.getElementById('register-email') as HTMLInputElement;
+    const verifyEmailBtn = document.getElementById('verify-email-btn') as HTMLButtonElement;
+    const setPasswordForm = document.getElementById('set-password-form') as HTMLFormElement;
     const registerPasswordInput = document.getElementById('register-password') as HTMLInputElement;
     const registerConfirmPasswordInput = document.getElementById('register-confirm-password') as HTMLInputElement;
+
 
     // Profile Modal Elements
     const profileModal = document.getElementById('profile-modal') as HTMLDivElement;
@@ -76,6 +86,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const profileView = document.getElementById('profile-view') as HTMLDivElement;
     const profileEditView = document.getElementById('profile-edit-view') as HTMLDivElement;
     const profileEmail = document.getElementById('profile-email') as HTMLParagraphElement;
+    const profilePlan = document.getElementById('profile-plan') as HTMLParagraphElement;
     const profileAttempts = document.getElementById('profile-attempts') as HTMLParagraphElement;
     const editProfileBtn = document.getElementById('edit-profile-btn') as HTMLButtonElement;
     const profileEditForm = document.getElementById('profile-edit-form') as HTMLFormElement;
@@ -91,6 +102,28 @@ document.addEventListener('DOMContentLoaded', () => {
     // My Creations Elements
     const myCreationsSection = document.getElementById('my-creations-section') as HTMLElement;
     const myCreationsGrid = document.getElementById('my-creations-grid') as HTMLDivElement;
+
+    // Pricing & Payment Elements
+    const currencySwitcher = document.getElementById('currency-switcher') as HTMLDivElement;
+    const priceElements = document.querySelectorAll('.price[data-price-usd]') as NodeListOf<HTMLElement>;
+    const paidPlanButtons = document.querySelectorAll('.pricing-button[data-plan="pro"], .pricing-button[data-plan="elite"]');
+
+    // Payment Method Modal Elements
+    const paymentMethodModal = document.getElementById('payment-method-modal') as HTMLDivElement;
+    const paymentMethodCloseBtn = document.getElementById('payment-method-close-btn') as HTMLButtonElement;
+    const paymentMethodTitle = document.getElementById('payment-method-title') as HTMLHeadingElement;
+    const payWithCardBtn = document.getElementById('pay-with-card-btn') as HTMLButtonElement;
+    const payWithCryptoBtn = document.getElementById('pay-with-crypto-btn') as HTMLButtonElement;
+
+    // Crypto Payment Modal Elements
+    const cryptoPaymentModal = document.getElementById('crypto-payment-modal') as HTMLDivElement;
+    const cryptoPaymentCloseBtn = document.getElementById('crypto-payment-close-btn') as HTMLButtonElement;
+    const cryptoPaymentTitle = document.getElementById('crypto-payment-title') as HTMLHeadingElement;
+    const cryptoTabs = document.querySelector('.crypto-tabs') as HTMLDivElement;
+    const cryptoAmountValue = document.getElementById('crypto-amount-value') as HTMLSpanElement;
+    const cryptoWalletAddress = document.getElementById('crypto-wallet-address') as HTMLInputElement;
+    const copyAddressBtn = document.getElementById('copy-address-btn') as HTMLButtonElement;
+    const confirmCryptoPaymentBtn = document.getElementById('confirm-crypto-payment-btn') as HTMLButtonElement;
 
 
     // --- State Management ---
@@ -109,8 +142,20 @@ document.addEventListener('DOMContentLoaded', () => {
     let loadingInterval: number;
     
     // Auth State
-    let currentUser: { email: string; attemptsLeft: number; plan: 'free' | 'pro' | 'elite' | 'admin' } | null = null;
+    type UserPlan = 'free' | 'pro' | 'elite' | 'admin';
+    let currentUser: { email: string; attemptsLeft: number; plan: UserPlan } | null = null;
+    let registrationEmail: string | null = null; // Used for multi-step registration
     const ADMIN_EMAIL = 'admin@gemvision.ai';
+
+    // Payment State
+    let stripe: any = null;
+    let currentCurrency: 'usd' | 'inr' = 'usd';
+    let selectedPlanForPayment: {
+        plan: UserPlan;
+        planName: string;
+        priceUsdCents: number;
+        priceInrCents: number;
+    } | null = null;
 
 
     // --- Gemini API Initialization ---
@@ -194,15 +239,15 @@ document.addEventListener('DOMContentLoaded', () => {
      */
     function updateGenerateButtonState() {
         if (currentUser) {
-            // Conditions for the button to be DISABLED
-            const outOfAttempts = currentUser.attemptsLeft <= 0;
+            // Free users have attempt limits, others don't
+            const outOfAttempts = currentUser.plan === 'free' && currentUser.attemptsLeft <= 0;
             const missingInputs = !uploadedFile || !designPromptInput.value.trim();
 
             generateBtn.disabled = outOfAttempts || missingInputs;
 
             // Update tooltip based on the reason it's disabled or enabled
             if (outOfAttempts) {
-                generateBtn.dataset.tooltip = "You've used all your free attempts. Please upgrade to a Pro plan to continue generating.";
+                generateBtn.dataset.tooltip = "You've used all your free attempts. Please upgrade your plan to continue generating.";
             } else if (missingInputs) {
                 generateBtn.dataset.tooltip = "Please upload a gemstone and describe your design idea.";
             } else {
@@ -413,7 +458,7 @@ document.addEventListener('DOMContentLoaded', () => {
         
         card.innerHTML = `
             <div class="media-container">
-                <img src="${imageUrl}" alt="${design.name}">
+                <img src="${imageUrl}" alt="${design.name}" loading="lazy" data-analysis-type="jewelry">
                 <div class="viewer-container"></div>
                 <button class="view-toggle-btn" data-view="2d">View in 3D</button>
             </div>
@@ -616,7 +661,7 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
         
-        if (currentUser.attemptsLeft <= 0) {
+        if (currentUser.plan === 'free' && currentUser.attemptsLeft <= 0) {
             showNotification("You have no attempts left. Please upgrade your plan.", "error");
             return;
         }
@@ -703,10 +748,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 createDesignCard(design, imageUrl);
             }
             
-            // Decrement and save attempts
-            currentUser.attemptsLeft--;
-            saveCurrentUserState();
-            updateAuthStateUI();
+            // Decrement and save attempts if user is on free plan
+            if (currentUser.plan === 'free') {
+                currentUser.attemptsLeft--;
+                saveCurrentUserState();
+                updateAuthStateUI();
+            }
 
 
         } catch (error) {
@@ -722,13 +769,23 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     
     /**
-     * Opens the image zoom modal with the specified image source.
+     * Opens the image zoom modal with the specified image and context.
      * @param src The source URL of the image to display.
+     * @param analysisType The type of analysis to perform ('gemstone' or 'jewelry').
      */
-    function openImageZoom(src: string) {
+    function openImageZoom(src: string, analysisType: 'gemstone' | 'jewelry' = 'jewelry') {
         zoomedImage.src = src;
-        // Reset analysis content
-        zoomAnalysisResult.textContent = "Click 'Analyze Gem' to learn more about this stone.";
+        
+        // Store the analysis type for later use
+        analyzeGemBtn.dataset.analysisType = analysisType;
+        
+        // Reset analysis content with context-aware text
+        if (analysisType === 'gemstone') {
+             zoomAnalysisResult.textContent = "Click 'Analyze Gem' to get a detailed gemological report.";
+        } else {
+             zoomAnalysisResult.textContent = "Click 'Analyze Gem' to get an expert review of this jewelry design.";
+        }
+       
         analyzeGemBtn.disabled = false;
         analyzeGemBtn.textContent = 'Analyze Gem';
         imageZoomModal.classList.add('show');
@@ -744,7 +801,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
      /**
-     * Analyzes the currently zoomed-in image using AI.
+     * Analyzes the currently zoomed-in image using a context-aware AI prompt.
      */
     async function analyzeZoomedImage() {
         const imageSrc = zoomedImage.src;
@@ -755,10 +812,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
         analyzeGemBtn.disabled = true;
         analyzeGemBtn.textContent = 'Analyzing...';
-        zoomAnalysisResult.textContent = 'The AI is inspecting the gemstone...';
+        zoomAnalysisResult.textContent = 'The AI is inspecting the image...';
 
         try {
-            // Convert data URL to the format needed by the API
             const parts = imageSrc.split(',');
             const mimeType = parts[0].match(/:(.*?);/)?.[1];
             const base64Data = parts[1];
@@ -770,7 +826,15 @@ document.addEventListener('DOMContentLoaded', () => {
             const imagePart = {
                 inlineData: { mimeType, data: base64Data },
             };
-            const prompt = `Identify the gemstone in this image. Provide a detailed analysis, including its likely type, cut, color, clarity, and any other visible characteristics like inclusions or unique features. Format the response as a paragraph.`;
+            
+            const analysisType = analyzeGemBtn.dataset.analysisType;
+            let prompt = '';
+
+            if (analysisType === 'gemstone') {
+                prompt = `You are an expert gemologist. Analyze the loose gemstone in this image. Provide a detailed analysis, including its likely type, cut quality (commenting on symmetry, faceting, and potential light leakage), color (hue, saturation, and tone), and clarity (any visible inclusions or blemishes). Format the response as a single, detailed paragraph.`;
+            } else { // Default to 'jewelry' analysis
+                prompt = `You are a jewelry design expert. Analyze the complete piece of jewelry in this image. Describe the overall design style (e.g., Art Deco, minimalist, vintage-inspired). Comment on the craftsmanship, the setting type (e.g., prong, bezel), the choice of metal, and how the central gemstone is mounted and accentuated by the overall design. Evaluate the harmony and balance of the piece. Format the response as a single, detailed paragraph.`;
+            }
 
             const response = await ai.models.generateContent({
                 model: "gemini-2.5-flash",
@@ -846,11 +910,14 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- Auth, Profile & Admin Functions ---
 
     function openAuthModal(view: 'login' | 'register' = 'login') {
+        loginView.style.display = 'none';
+        registerView.style.display = 'none';
+        verifyEmailView.style.display = 'none';
+        setPasswordView.style.display = 'none';
+
         if (view === 'login') {
             loginView.style.display = 'block';
-            registerView.style.display = 'none';
         } else {
-            loginView.style.display = 'none';
             registerView.style.display = 'block';
         }
         authModal.style.display = 'flex';
@@ -858,13 +925,19 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function closeAuthModal() {
         authModal.style.display = 'none';
+        // Reset forms for next time
+        loginForm.reset();
+        registerForm.reset();
+        setPasswordForm.reset();
+        registrationEmail = null;
     }
 
     function openProfileModal() {
         if (!currentUser) return;
         // Populate profile data
         profileEmail.textContent = currentUser.email;
-        profileAttempts.textContent = currentUser.attemptsLeft.toString();
+        profilePlan.textContent = currentUser.plan;
+        profileAttempts.textContent = currentUser.plan === 'free' ? currentUser.attemptsLeft.toString() : 'Unlimited';
         profileEditEmailInput.value = currentUser.email;
 
         // Reset to view mode
@@ -884,8 +957,12 @@ document.addEventListener('DOMContentLoaded', () => {
         if (currentUser) {
             navActionBtn.textContent = 'My Profile';
             generatorGate.classList.add('hidden');
-            attemptsCounter.textContent = `You have ${currentUser.attemptsLeft} free attempts remaining.`;
-            attemptsCounter.style.display = 'block';
+            if (currentUser.plan === 'free') {
+                 attemptsCounter.textContent = `You have ${currentUser.attemptsLeft} free attempts remaining.`;
+                 attemptsCounter.style.display = 'block';
+            } else {
+                 attemptsCounter.style.display = 'none';
+            }
             adminPanel.style.display = isAdmin ? 'block' : 'none';
         } else {
             navActionBtn.textContent = 'Login / Register';
@@ -899,11 +976,11 @@ document.addEventListener('DOMContentLoaded', () => {
     function saveCurrentUserState() {
         if (currentUser) {
             localStorage.setItem('gemvision_currentUser', JSON.stringify(currentUser));
-             // Also update the master user list in case attempts changed
+             // Also update the master user list
             const users = JSON.parse(localStorage.getItem('gemvision_users') || '{}');
             const userData = users[currentUser.email];
             if (userData) {
-                users[currentUser.email] = {...userData, attemptsLeft: currentUser.attemptsLeft};
+                users[currentUser.email] = {...userData, attemptsLeft: currentUser.attemptsLeft, plan: currentUser.plan};
                 localStorage.setItem('gemvision_users', JSON.stringify(users));
             }
         } else {
@@ -938,8 +1015,8 @@ document.addEventListener('DOMContentLoaded', () => {
             card.className = 'showcase-card';
             card.innerHTML = `
                 <div class="showcase-card-images">
-                    <img src="${item.gemstoneImage}" alt="Loose Gemstone">
-                    <img src="${item.designImage}" alt="${item.name}">
+                    <img src="${item.gemstoneImage}" alt="Loose Gemstone" loading="lazy" data-analysis-type="gemstone">
+                    <img src="${item.designImage}" alt="${item.name}" loading="lazy" data-analysis-type="jewelry">
                 </div>
                 <div class="showcase-card-content">
                     <h3>${item.name}</h3>
@@ -976,8 +1053,8 @@ document.addEventListener('DOMContentLoaded', () => {
             card.className = 'showcase-card';
             card.innerHTML = `
                 <div class="showcase-card-images">
-                    <img src="${item.gemstoneImage}" alt="Loose Gemstone">
-                    <img src="${item.designImage}" alt="${item.name}">
+                    <img src="${item.gemstoneImage}" alt="Loose Gemstone" loading="lazy" data-analysis-type="gemstone">
+                    <img src="${item.designImage}" alt="${item.name}" loading="lazy" data-analysis-type="jewelry">
                 </div>
                 <div class="showcase-card-content">
                     <h3>${item.name}</h3>
@@ -1086,6 +1163,161 @@ document.addEventListener('DOMContentLoaded', () => {
             adminStatus.textContent = '';
         }
     }
+    
+    // --- Payment Functions ---
+    
+    function updateDisplayedPrices() {
+        const currencySymbol = currentCurrency === 'usd' ? '$' : '₹';
+        priceElements.forEach(el => {
+            const price = currentCurrency === 'usd' ? el.getAttribute('data-price-usd') : el.getAttribute('data-price-inr');
+            if (price) {
+                el.innerHTML = `${currencySymbol}${price}<span>/month</span>`;
+            }
+        });
+    }
+    
+    /**
+     * Reads, validates, and stores plan info to begin the payment process.
+     * This function is now more robust to prevent invalid data from entering the flow.
+     */
+    function openPaymentMethodModal(button: HTMLButtonElement) {
+        const plan = button.dataset.plan as UserPlan;
+        const planName = button.dataset.planName;
+        const priceUsdCentsAttr = button.getAttribute('data-price-usd-cents');
+        const priceInrCentsAttr = button.getAttribute('data-price-inr-cents');
+
+        // Stricter initial validation
+        if (!plan || !planName || !priceUsdCentsAttr || !priceInrCentsAttr) {
+            showNotification("Cannot initiate payment: critical plan information is missing.", "error");
+            return;
+        }
+
+        const priceUsdCents = parseInt(priceUsdCentsAttr, 10);
+        const priceInrCents = parseInt(priceInrCentsAttr, 10);
+
+        if (isNaN(priceUsdCents) || isNaN(priceInrCents) || priceUsdCents <= 0 || priceInrCents <= 0) {
+            showNotification("Cannot initiate payment: price information is invalid.", "error");
+            return;
+        }
+
+        selectedPlanForPayment = { plan, planName, priceUsdCents, priceInrCents };
+        paymentMethodTitle.textContent = `Upgrade to ${planName}`;
+        paymentMethodModal.style.display = 'flex';
+    }
+    
+    function closePaymentMethodModal() {
+        paymentMethodModal.style.display = 'none';
+        selectedPlanForPayment = null;
+    }
+
+    function openCryptoModal() {
+        if (!selectedPlanForPayment) return;
+
+        cryptoPaymentTitle.textContent = `Pay for ${selectedPlanForPayment.planName}`;
+        // In a real app, you would fetch conversion rates. Here we simulate.
+        // Reset to default tab
+        const defaultTab = cryptoTabs.querySelector('.crypto-tab[data-coin="BTC"]') as HTMLButtonElement;
+        switchCryptoTab(defaultTab);
+        
+        closePaymentMethodModal();
+        cryptoPaymentModal.style.display = 'flex';
+    }
+
+    function closeCryptoModal() {
+        cryptoPaymentModal.style.display = 'none';
+    }
+
+    function switchCryptoTab(tab: HTMLButtonElement) {
+         cryptoTabs.querySelector('.active')?.classList.remove('active');
+         tab.classList.add('active');
+
+        // This is a simulation. In a real app, you'd fetch this data.
+        const coin = tab.dataset.coin;
+        if (coin === 'BTC') {
+            cryptoAmountValue.textContent = '0.000105 BTC';
+            cryptoWalletAddress.value = 'bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh';
+        } else if (coin === 'ETH') {
+            cryptoAmountValue.textContent = '0.0021 ETH';
+            cryptoWalletAddress.value = '0xAb5801a7D398351b8bE11C439e05C5B3259aeC9B';
+        }
+    }
+
+    /**
+     * Redirects to Stripe checkout using pre-validated plan information.
+     * This function now includes a final sanity check.
+     */
+    async function redirectToCheckout() {
+        if (!stripe || !currentUser || !selectedPlanForPayment) {
+            showNotification('Payment system is not available. Please try again later.');
+            return;
+        }
+
+        const { planName, priceUsdCents, priceInrCents } = selectedPlanForPayment;
+        const priceCents = currentCurrency === 'usd' ? priceUsdCents : priceInrCents;
+
+        // Final "pre-flight" check to guarantee data integrity before the API call.
+        if (!planName || !Number.isInteger(priceCents) || priceCents <= 0) {
+            console.error('Invalid payment data just before Stripe call:', { planName, priceCents });
+            showNotification('A problem occurred with the payment details. Please try again.', 'error');
+            return;
+        }
+
+        toggleLoading(true);
+
+        try {
+            await stripe.redirectToCheckout({
+                lineItems: [{
+                    price_data: {
+                        currency: currentCurrency,
+                        product_data: {
+                            name: planName,
+                        },
+                        unit_amount: priceCents,
+                        recurring: {
+                            interval: 'month',
+                        },
+                    },
+                    quantity: 1,
+                }],
+                mode: 'subscription',
+                successUrl: `${window.location.origin}${window.location.pathname}?checkout_status=success&plan=${selectedPlanForPayment.plan}`,
+                cancelUrl: `${window.location.origin}${window.location.pathname}?checkout_status=cancel`,
+                customerEmail: currentUser.email,
+            });
+        } catch (error) {
+            console.error("Stripe checkout error:", error);
+            showNotification("Could not redirect to payment page. Please try again.", "error");
+            toggleLoading(false);
+        }
+    }
+
+    function handleStripeRedirect() {
+        const urlParams = new URLSearchParams(window.location.search);
+        const status = urlParams.get('checkout_status');
+        const plan = urlParams.get('plan') as UserPlan;
+
+        if (status) {
+            // Clean the URL
+            window.history.replaceState({}, document.title, window.location.pathname);
+            
+            if (status === 'success' && currentUser && (plan === 'pro' || plan === 'elite')) {
+                upgradeUserPlan(plan);
+            } else if (status === 'cancel') {
+                showNotification('Your payment was cancelled. You have not been charged.', 'error');
+            }
+        }
+    }
+    
+    function upgradeUserPlan(plan: UserPlan) {
+        if (!currentUser || (plan !== 'pro' && plan !== 'elite')) return;
+        
+        currentUser.plan = plan;
+        // Pro plan has a monthly generation limit, Elite is unlimited for this demo
+        currentUser.attemptsLeft = plan === 'pro' ? 50 : 9999;
+        saveCurrentUserState();
+        updateAuthStateUI();
+        showNotification(`Successfully upgraded to the ${plan} plan!`, 'success');
+    }
 
 
     // --- Event Listeners ---
@@ -1166,7 +1398,8 @@ document.addEventListener('DOMContentLoaded', () => {
         
              // Handle Image Zoom on any image inside the cards
             if (target.tagName === 'IMG') {
-                openImageZoom((target as HTMLImageElement).src);
+                const analysisType = (target.dataset.analysisType as 'gemstone' | 'jewelry') || 'jewelry';
+                openImageZoom((target as HTMLImageElement).src, analysisType);
                 return; // Prioritize zoom
             }
             
@@ -1238,16 +1471,11 @@ document.addEventListener('DOMContentLoaded', () => {
         openAuthModal('login');
     });
     
-    registerForm.addEventListener('submit', async (e) => {
+    // Registration Step 1: Email submission
+    registerForm.addEventListener('submit', (e) => {
         e.preventDefault();
-        const email = registerEmailInput.value;
-        const password = registerPasswordInput.value;
-        const confirmPassword = registerConfirmPasswordInput.value;
-        
-        if (password !== confirmPassword) {
-            showNotification("Passwords do not match.", "error");
-            return;
-        }
+        const email = registerEmailInput.value.trim();
+        if (!email) return;
 
         const users = JSON.parse(localStorage.getItem('gemvision_users') || '{}');
         if (users[email] || email === ADMIN_EMAIL) {
@@ -1255,14 +1483,43 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
+        registrationEmail = email;
+        registerView.style.display = 'none';
+        verifyEmailView.style.display = 'block';
+    });
+
+    // Registration Step 2: "Verify" button click
+    verifyEmailBtn.addEventListener('click', () => {
+        verifyEmailView.style.display = 'none';
+        setPasswordView.style.display = 'block';
+    });
+    
+    // Registration Step 3: Password submission and account creation
+    setPasswordForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        if (!registrationEmail) {
+            showNotification('An error occurred. Please start over.', 'error');
+            openAuthModal('register');
+            return;
+        }
+
+        const password = registerPasswordInput.value;
+        const confirmPassword = registerConfirmPasswordInput.value;
+
+        if (password !== confirmPassword) {
+            showNotification("Passwords do not match.", "error");
+            return;
+        }
+
+        const users = JSON.parse(localStorage.getItem('gemvision_users') || '{}');
         const hashedPassword = await hashPassword(password);
-        users[email] = { password: hashedPassword, attemptsLeft: 3, plan: 'free' };
+        users[registrationEmail] = { password: hashedPassword, attemptsLeft: 3, plan: 'free' };
         localStorage.setItem('gemvision_users', JSON.stringify(users));
 
-        currentUser = { email: email, attemptsLeft: 3, plan: 'free' };
+        currentUser = { email: registrationEmail, attemptsLeft: 3, plan: 'free' };
         saveCurrentUserState();
         updateAuthStateUI();
-        renderMyCreationsGallery(); // Render empty gallery on new account
+        renderMyCreationsGallery();
         closeAuthModal();
         showNotification("Account created successfully! You can now start designing.", "success");
     });
@@ -1332,6 +1589,59 @@ document.addEventListener('DOMContentLoaded', () => {
             showNotification('Please select a file to upload.', 'error');
         }
     });
+    
+    // Payment Listeners
+    currencySwitcher.addEventListener('click', (e) => {
+        const target = e.target as HTMLButtonElement;
+        if (target.tagName === 'BUTTON' && target.dataset.currency) {
+            currentCurrency = target.dataset.currency as 'usd' | 'inr';
+            // Update button styles
+            currencySwitcher.querySelector('.active')?.classList.remove('active');
+            target.classList.add('active');
+            // Update prices on the page
+            updateDisplayedPrices();
+        }
+    });
+
+    paidPlanButtons.forEach(button => {
+        button.addEventListener('click', (e) => {
+            e.preventDefault();
+            if (!currentUser) {
+                showNotification("Please log in or create an account to upgrade.", "error");
+                openAuthModal('login');
+                return;
+            }
+            openPaymentMethodModal(button as HTMLButtonElement);
+        });
+    });
+
+    paymentMethodCloseBtn.addEventListener('click', closePaymentMethodModal);
+    payWithCardBtn.addEventListener('click', redirectToCheckout);
+    payWithCryptoBtn.addEventListener('click', openCryptoModal);
+    cryptoPaymentCloseBtn.addEventListener('click', closeCryptoModal);
+    
+    cryptoTabs.addEventListener('click', (e) => {
+        const target = e.target as HTMLButtonElement;
+        if (target.classList.contains('crypto-tab')) {
+            switchCryptoTab(target);
+        }
+    });
+
+    copyAddressBtn.addEventListener('click', () => {
+        navigator.clipboard.writeText(cryptoWalletAddress.value).then(() => {
+            showNotification("Wallet address copied to clipboard!", "success");
+        }, (err) => {
+            showNotification("Failed to copy address.", "error");
+            console.error('Clipboard copy failed:', err);
+        });
+    });
+    
+    confirmCryptoPaymentBtn.addEventListener('click', () => {
+        if (selectedPlanForPayment) {
+            upgradeUserPlan(selectedPlanForPayment.plan);
+            closeCryptoModal();
+        }
+    });
 
 
     // --- Initial State ---
@@ -1346,11 +1656,15 @@ document.addEventListener('DOMContentLoaded', () => {
             navActionBtn.style.display = 'none';
             generatorGate.innerHTML = '<h3>Account features are disabled by your browser settings.</h3><p>Please enable cookies/site data to log in or register.</p>';
             gateSignupBtn.disabled = true;
-            document.querySelectorAll('.pricing-button[data-plan="free"]').forEach(btn => {
+            document.querySelectorAll('.pricing-button').forEach(btn => {
                 (btn as HTMLButtonElement).disabled = true;
             });
-            return; // Stop initialization of user state
+            return; // Stop initialization of user/payment state
         }
+        
+        // Initialize Stripe with a test key
+        // NOTE: This is a public test key from Stripe's documentation.
+        stripe = Stripe('pk_test_51Pcb34RpJ92f5dC6n4E8Wb7L7iG6Nl2J4cWf6yGk9j0v2O7Xb8Q0f4d1C5e8N4z6F7f7x6e5dC4a3b2c1d0e0f');
     
         const storedUser = localStorage.getItem('gemvision_currentUser');
         if (storedUser) {
@@ -1358,7 +1672,10 @@ document.addEventListener('DOMContentLoaded', () => {
         } else {
             currentUser = null;
         }
+
+        handleStripeRedirect(); // Check for payment success/cancel before updating UI
         updateAuthStateUI();
+        updateDisplayedPrices(); // Set initial prices based on default currency
         renderShowcaseGallery();
         renderMyCreationsGallery();
         dreamBtn.disabled = true;
