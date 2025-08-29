@@ -45,6 +45,10 @@ h1, h2, h3 {
     color: var(--text-color);
 }
 
+h4 {
+    font-family: var(--font-primary);
+}
+
 section {
     width: 100%;
     margin-bottom: 4rem;
@@ -351,6 +355,22 @@ input[type="file"] {
     font-size: 1rem;
 }
 
+.dimension-group .dimension-inputs {
+    display: flex;
+    gap: 1rem;
+}
+
+.dimension-group input {
+    /* For Firefox */
+    -moz-appearance: textfield;
+}
+.dimension-group input::-webkit-outer-spin-button,
+.dimension-group input::-webkit-inner-spin-button {
+    /* For Chrome, Safari, Edge, Opera */
+    -webkit-appearance: none;
+    margin: 0;
+}
+
 
 .dream-button, .smart-details-button {
     background: none;
@@ -412,6 +432,56 @@ input[type="file"] {
     font-weight: 600;
     color: var(--text-secondary-color);
 }
+
+/* Analysis Results */
+.analysis-results-container {
+    background-color: var(--primary-color);
+    border-radius: 8px;
+    padding: 1.5rem;
+    margin-top: 1rem;
+    border: 1px solid var(--trust-accent-color);
+    animation: fadeIn 0.5s ease;
+}
+
+.analysis-results-container h4 {
+    text-align: center;
+    font-size: 1.5rem;
+    margin-bottom: 1rem;
+    color: var(--accent-color);
+}
+
+#analysis-content strong {
+    color: var(--text-color);
+    display: block;
+    margin-top: 0.75rem;
+}
+
+#analysis-sources {
+    margin-top: 1.5rem;
+    padding-top: 1rem;
+    border-top: 1px solid var(--secondary-color);
+    font-size: 0.8rem;
+}
+
+#analysis-sources h5 {
+    font-family: var(--font-secondary);
+    margin-bottom: 0.5rem;
+}
+
+#analysis-sources ul {
+    list-style: none;
+    padding-left: 0;
+}
+
+#analysis-sources li a {
+    color: var(--text-secondary-color);
+    text-decoration: none;
+}
+#analysis-sources li a:hover {
+    color: var(--accent-color);
+    text-decoration: underline;
+}
+
 
 /* Why Us Section */
 .why-us-section h2 {

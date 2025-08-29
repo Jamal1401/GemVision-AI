@@ -12,10 +12,13 @@ document.addEventListener('DOMContentLoaded', () => {
     const cameraButton = document.getElementById('camera-button') as HTMLButtonElement;
     const gemTypeInput = document.getElementById('gem-type') as HTMLInputElement;
     const gemWeightInput = document.getElementById('gem-weight') as HTMLInputElement;
+    const gemLengthInput = document.getElementById('gem-length') as HTMLInputElement;
+    const gemBreadthInput = document.getElementById('gem-breadth') as HTMLInputElement;
+    const gemDepthInput = document.getElementById('gem-depth') as HTMLInputElement;
     const designPromptInput = document.getElementById('design-prompt') as HTMLTextAreaElement;
     const generateBtn = document.getElementById('generate-btn') as HTMLButtonElement;
     const dreamBtn = document.getElementById('dream-btn') as HTMLButtonElement;
-    const smartDetailsBtn = document.getElementById('smart-details-btn') as HTMLButtonElement;
+    const analyzeGemstoneBtn = document.getElementById('analyze-gemstone-btn') as HTMLButtonElement;
     const galleryContent = document.getElementById('gallery-content') as HTMLDivElement;
     const showcaseGrid = document.getElementById('showcase-grid') as HTMLDivElement;
     const loadingOverlay = document.getElementById('loading-overlay') as HTMLDivElement;
@@ -30,6 +33,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const gateSignupBtn = document.getElementById('gate-signup-btn') as HTMLButtonElement;
     const attemptsCounter = document.getElementById('attempts-counter') as HTMLParagraphElement;
     const navActionBtn = document.getElementById('nav-action-btn') as HTMLAnchorElement;
+    const analysisResultsContainer = document.getElementById('analysis-results-container') as HTMLDivElement;
+    const analysisContent = document.getElementById('analysis-content') as HTMLDivElement;
+    const analysisSources = document.getElementById('analysis-sources') as HTMLDivElement;
 
     // Video Preview Elements
     const videoPreviewContainer = document.getElementById('video-preview-container') as HTMLDivElement;
@@ -241,7 +247,7 @@ document.addEventListener('DOMContentLoaded', () => {
             imagePreviewContainer.style.display = 'block';
             fileNameSpan.textContent = file.name;
             dreamBtn.disabled = false;
-            smartDetailsBtn.disabled = false;
+            analyzeGemstoneBtn.disabled = false;
             updateGenerateButtonState();
         };
         reader.readAsDataURL(file);
@@ -277,11 +283,16 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         videoPreview.src = '';
         videoPreviewContainer.style.display = 'none';
+        
+        // Analysis reset
+        analysisResultsContainer.style.display = 'none';
+        analysisContent.innerHTML = '';
+        analysisSources.innerHTML = '';
 
 
         fileNameSpan.textContent = 'Upload Photo or Video';
         dreamBtn.disabled = true;
-        smartDetailsBtn.disabled = true;
+        analyzeGemstoneBtn.disabled = true;
         updateGenerateButtonState();
     }
 
@@ -450,17 +461,18 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     /**
-     * Asks the AI to analyze the gemstone image and return details.
+     * Asks the AI to perform a comprehensive analysis of the gemstone.
      */
-    async function getSmartDetails() {
+    async function analyzeGemstone() {
         if (!uploadedFile) {
             showNotification("Please upload a gemstone image first.");
             return;
         }
 
-        const originalButtonText = smartDetailsBtn.innerHTML;
-        smartDetailsBtn.disabled = true;
-        smartDetailsBtn.innerHTML = 'Analyzing...';
+        const originalButtonText = analyzeGemstoneBtn.innerHTML;
+        analyzeGemstoneBtn.disabled = true;
+        analyzeGemstoneBtn.innerHTML = 'Analyzing...';
+        analysisResultsContainer.style.display = 'none';
 
         try {
             const imagePart = {
@@ -469,39 +481,86 @@ document.addEventListener('DOMContentLoaded', () => {
                     data: uploadedFile.base64,
                 },
             };
-            const prompt = `Analyze the provided image of a gemstone. Identify its key visual characteristics (like primary color and shape/cut) and estimate its carat weight.`;
+
+            const length = gemLengthInput.value;
+            const breadth = gemBreadthInput.value;
+            const depth = gemDepthInput.value;
+            const dimensionsProvided = length && breadth && depth;
+
+            const prompt = `
+                You are a professional gemologist AI. Analyze the provided gemstone image and user-provided information.
+
+                **User Input:**
+                - Dimensions (L x B x D in mm): ${dimensionsProvided ? `${length} x ${breadth} x ${depth}`: 'Not provided. Analysis is based on the image only.'}
+
+                **Your Task:**
+                1.  **Identification:** Provide a single line at the very top with the identified gemstone and its estimated carat weight. Format it EXACTLY like this: \`Identification: [Gemstone Type and Cut], [Estimated Carat Weight]\`. For example: \`Identification: Vibrant red ruby, oval cut, approximately 2 carats\`.
+                2.  **Cut Quality Analysis:** Based on the image, analyze the cut quality. Specifically comment on:
+                    - **Symmetry and Proportions:** How well-balanced is the cut from what you can see?
+                    - **Windows and Extinction:** Are there visible "windows" (transparent, washed-out areas) or significant "extinction" (dark areas from light leakage)?
+                3.  **Proportion Assessment ${dimensionsProvided ? '(Based on provided dimensions)' : '(Dimensions not provided)'}:**
+                    ${dimensionsProvided ?
+                    `- Analyze the provided dimensions. Calculate the depth-to-width (depth/breadth) percentage. Provide an opinion on whether it's well-proportioned. A good range for many cuts is 60-80% of the width. State if the stone seems too shallow (risk of windowing) or too deep (loses sparkle).`
+                    : '- To get a proportion assessment, please provide the length, breadth, and depth dimensions.'
+                    }
+                4.  **Price Estimation:**
+                    - Use your web search capabilities to find the current market price for a similar polished gemstone.
+                    - Provide an estimated price range (e.g., $500 - $700 per carat).
+                    - State that this is an estimate and prices vary based on many factors not visible in a photo.
+
+                **Output Format:**
+                Provide the response as clear, readable text. Use markdown-style bold headings for each section: **Cut Quality Analysis**, **Proportion Assessment**, and **Price Estimation**. The \`Identification:\` line must be the very first thing in your response.`;
+
 
             const response = await ai.models.generateContent({
                 model: "gemini-2.5-flash",
                 contents: { parts: [imagePart, { text: prompt }] },
-                 config: {
-                    responseMimeType: "application/json",
-                    responseSchema: {
-                        type: Type.OBJECT,
-                        properties: {
-                            gemstoneDetails: { 
-                                type: Type.STRING,
-                                description: "A description of the gem's type, color, and cut. e.g. 'Vibrant red ruby, oval cut'."
-                            },
-                            caratWeight: { 
-                                type: Type.STRING,
-                                description: "An estimated weight in carats. e.g. 'approximately 2 carats'."
-                            }
-                        }
-                    }
-                }
+                config: {
+                    tools: [{ googleSearch: {} }],
+                },
             });
+
+            const fullText = response.text;
+            const lines = fullText.split('\n');
+            const identificationLine = lines.find(line => line.startsWith('Identification:'));
             
-            const result = JSON.parse(response.text.trim());
-            gemTypeInput.value = result.gemstoneDetails || '';
-            gemWeightInput.value = result.caratWeight || '';
+            if (identificationLine) {
+                const parts = identificationLine.replace('Identification:', '').trim().split(',');
+                if (parts.length >= 2) {
+                    gemTypeInput.value = parts.slice(0, parts.length - 1).join(',').trim();
+                    gemWeightInput.value = parts[parts.length - 1].trim();
+                } else {
+                    gemTypeInput.value = parts[0].trim();
+                }
+            }
+            
+            // Format the rest of the text for display
+            const analysisReport = lines.filter(line => !line.startsWith('Identification:')).join('\n')
+                .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+                .replace(/\n/g, '<br>');
+
+            analysisContent.innerHTML = analysisReport;
+            
+            // Display sources
+            const groundingChunks = response.candidates?.[0]?.groundingMetadata?.groundingChunks;
+            if (groundingChunks && groundingChunks.length > 0) {
+                 const sourcesHtml = groundingChunks.map(chunk => 
+                    `<li><a href="${chunk.web.uri}" target="_blank" rel="noopener noreferrer">${chunk.web.title}</a></li>`
+                ).join('');
+                analysisSources.innerHTML = `<h5>Sources for Price Estimation:</h5><ul>${sourcesHtml}</ul>`;
+            } else {
+                analysisSources.innerHTML = '';
+            }
+
+            analysisResultsContainer.style.display = 'block';
 
         } catch (error) {
-            console.error("Error getting smart details:", error);
-            showNotification("The AI couldn't analyze the gem. Please try again or enter details manually.");
+            console.error("Error analyzing gemstone:", error);
+            showNotification("The AI couldn't analyze the gem. Please try again.", "error");
+            analysisResultsContainer.style.display = 'none';
         } finally {
-            smartDetailsBtn.disabled = false;
-            smartDetailsBtn.innerHTML = originalButtonText;
+            analyzeGemstoneBtn.disabled = false;
+            analyzeGemstoneBtn.innerHTML = originalButtonText;
         }
     }
     
@@ -1039,7 +1098,7 @@ document.addEventListener('DOMContentLoaded', () => {
     designPromptInput.addEventListener('input', updateGenerateButtonState);
     generateBtn.addEventListener('click', generateDesigns);
     dreamBtn.addEventListener('click', dreamUpPrompt);
-    smartDetailsBtn.addEventListener('click', getSmartDetails);
+    analyzeGemstoneBtn.addEventListener('click', analyzeGemstone);
 
     captureFrameBtn.addEventListener('click', () => {
         const canvas = document.createElement('canvas');
@@ -1066,7 +1125,7 @@ document.addEventListener('DOMContentLoaded', () => {
         
         // Enable buttons
         dreamBtn.disabled = false;
-        smartDetailsBtn.disabled = false;
+        analyzeGemstoneBtn.disabled = false;
         updateGenerateButtonState();
 
         showNotification("Frame captured! You can now generate designs.", "success");
@@ -1303,7 +1362,7 @@ document.addEventListener('DOMContentLoaded', () => {
         renderShowcaseGallery();
         renderMyCreationsGallery();
         dreamBtn.disabled = true;
-        smartDetailsBtn.disabled = true;
+        analyzeGemstoneBtn.disabled = true;
     }
     
     initializeApp();

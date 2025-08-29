@@ -68,16 +68,29 @@
                         <video id="video-preview" controls></video>
                         <button id="capture-frame-btn" class="generate-button">Capture Frame for Analysis</button>
                     </div>
+                    <div id="analysis-results-container" class="analysis-results-container" style="display: none;">
+                        <h4>Gemstone Analysis Report</h4>
+                        <div id="analysis-content"></div>
+                        <div id="analysis-sources"></div>
+                    </div>
                     <div class="input-group">
                         <div class="label-with-action">
                             <label for="gem-type">Gemstone Type & Features</label>
-                             <button id="smart-details-btn" class="smart-details-button has-tooltip" disabled data-tooltip="Let AI analyze your uploaded photo to automatically fill in the gemstone's details.">🔮 Smart Details</button>
+                             <button id="analyze-gemstone-btn" class="smart-details-button has-tooltip" disabled data-tooltip="Let AI analyze your uploaded photo to perform a full gemological analysis, including price estimation.">🔮 Analyze Gemstone</button>
                         </div>
                         <input type="text" id="gem-type" class="has-tooltip" placeholder="e.g., Ruby, vibrant red, oval cut..." data-tooltip="Describe the gemstone's type, color, and cut (e.g., 'Vibrant red ruby, oval cut').">
                     </div>
                     <div class="input-group">
                          <label for="gem-weight">Estimated Carat Weight</label>
                         <input type="text" id="gem-weight" class="has-tooltip" placeholder="e.g., 2 carats" data-tooltip="Enter the estimated weight of the gemstone in carats (e.g., '2 carats').">
+                    </div>
+                     <div class="input-group dimension-group">
+                        <label>Dimensions (mm) (Optional)</label>
+                        <div class="dimension-inputs">
+                            <input type="number" id="gem-length" placeholder="Length" aria-label="Gemstone length in millimeters">
+                            <input type="number" id="gem-breadth" placeholder="Breadth" aria-label="Gemstone breadth in millimeters">
+                            <input type="number" id="gem-depth" placeholder="Depth" aria-label="Gemstone depth in millimeters">
+                        </div>
                     </div>
                     <div class="input-group">
                         <div class="label-with-action">
