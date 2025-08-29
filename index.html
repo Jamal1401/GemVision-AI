@@ -31,9 +31,9 @@
                 <h1>GemVision AI</h1>
             </div>
             <nav>
-                <a href="#">Gallery</a>
-                <a href="#">Designs</a>
-                <a href="#" class="login-btn">Login / Register</a>
+                <a href="#showcase-gallery">Gallery</a>
+                <a href="#pricing-section">Pricing</a>
+                <a href="#" id="nav-action-btn" class="login-btn">Login / Register</a>
             </nav>
         </header>
 
@@ -44,13 +44,18 @@
             </section>
 
             <section id="generator" class="generator-section">
+                <div id="generator-gate" class="generator-gate">
+                    <h3>Create an account to start designing</h3>
+                    <p>Sign up for a free account to get 3 design generations and see the magic for yourself.</p>
+                    <button id="gate-signup-btn" class="generate-button">Sign Up for Free</button>
+                </div>
                 <div class="form-container">
                     <h3>Create Your Design</h3>
                     <div class="input-group file-input-group">
-                         <label for="file-upload" class="file-upload-label has-tooltip" data-tooltip="Click to upload a photo of your gemstone from your device.">
-                            <span id="file-name">Upload Gemstone Photo</span>
+                         <label for="file-upload" class="file-upload-label has-tooltip" data-tooltip="Click to upload a photo or short video of your gemstone.">
+                            <span id="file-name">Upload Photo or Video</span>
                         </label>
-                        <input type="file" id="file-upload" accept="image/*" aria-label="Upload gemstone photo">
+                        <input type="file" id="file-upload" accept="image/*,video/*" aria-label="Upload gemstone photo or video">
                         <button id="camera-button" class="camera-btn has-tooltip" aria-label="Use Camera" data-tooltip="Use your device's camera to take a photo of your gemstone.">
                             <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path><circle cx="12" cy="13" r="4"></circle></svg>
                         </button>
@@ -58,6 +63,10 @@
                      <div id="image-preview-container" class="image-preview-container" style="display: none;">
                         <img id="image-preview" src="#" alt="Image preview" />
                         <button id="remove-image-btn" aria-label="Remove image">&times;</button>
+                    </div>
+                    <div id="video-preview-container" class="video-preview-container" style="display: none;">
+                        <video id="video-preview" controls></video>
+                        <button id="capture-frame-btn" class="generate-button">Capture Frame for Analysis</button>
                     </div>
                     <div class="input-group">
                         <div class="label-with-action">
@@ -78,72 +87,203 @@
                         <textarea id="design-prompt" class="has-tooltip" rows="5" placeholder="Describe your idea or click 'Let AI Dream' for inspiration..." data-tooltip="Describe the jewelry design you envision. Be as descriptive as you like!"></textarea>
                     </div>
                     <button id="generate-btn" class="generate-button has-tooltip" disabled data-tooltip="Generate unique jewelry designs based on your gemstone and prompt.">Generate Designs</button>
+                    <p id="attempts-counter" class="attempts-counter" style="display:none;"></p>
                 </div>
             </section>
 
-            <section id="results-gallery" class="results-gallery">
-                <h2>Inspiration Gallery</h2>
-                 <div id="gallery-content" class="gallery-grid">
-                    <!-- Example cards -->
-                    <article class="design-card example">
-                        <div class="media-container">
-                            <img src="https://storage.googleapis.com/gemini-ui-params/f895c1c2-3e3c-4a3d-9f44-8846b102834d" alt="Celestial Azure Ring">
-                        </div>
-                        <div class="card-content">
-                            <h3>Celestial Azure Ring</h3>
-                            <p>A magnificent sapphire set in a halo of diamonds, crafted from 18k white gold. The band features intricate milgrain detailing, evoking a timeless elegance.</p>
-                            <h4>Blueprint:</h4>
-                            <ul>
-                                <li><strong>Metal:</strong> 18k White Gold</li>
-                                <li><strong>Center Stone:</strong> 3.5 Carat Blue Sapphire</li>
-                                <li><strong>Accent Stones:</strong> 0.75 Carat Total Weight, VS1 Clarity Diamonds</li>
-                            </ul>
-                        </div>
-                    </article>
-                    <article class="design-card example">
-                        <div class="media-container">
-                            <img src="https://storage.googleapis.com/gemini-ui-params/d5951d8b-5a1d-444c-a496-d444458f62f3" alt="Emerald Fire Pendant">
-                        </div>
-                        <div class="card-content">
-                            <h3>Emerald Fire Pendant</h3>
-                            <p>This striking emerald-cut gemstone is the centerpiece of a modern platinum pendant. Its minimalist design emphasizes the stone's natural beauty and fire.</p>
-                             <h4>Blueprint:</h4>
-                            <ul>
-                                <li><strong>Metal:</strong> Platinum 950</li>
-                                <li><strong>Center Stone:</strong> 5.0 Carat Colombian Emerald</li>
-                                <li><strong>Chain:</strong> 18-inch Platinum Cable Chain</li>
-                            </ul>
-                        </div>
-                    </article>
-                     <article class="design-card example">
-                         <div class="media-container">
-                            <img src="https://storage.googleapis.com/gemini-ui-params/554bb688-692e-4b47-b5b0-749e7b4e9f90" alt="Sunset Topaz Earrings">
-                         </div>
-                        <div class="card-content">
-                            <h3>Sunset Topaz Earrings</h3>
-                            <p>A pair of dazzling topaz earrings set in warm 14k yellow gold. The design is inspired by the vibrant colors of a sunset, perfect for adding a touch of glamour.</p>
-                             <h4>Blueprint:</h4>
-                            <ul>
-                                <li><strong>Metal:</strong> 14k Yellow Gold</li>
-                                <li><strong>Stones:</strong> Two 2.0 Carat Imperial Topaz</li>
-                                <li><strong>Setting:</strong> Four-prong basket</li>
-                            </ul>
-                        </div>
-                    </article>
+            <section class="why-us-section">
+                <h2>Why Choose GemVision AI?</h2>
+                <div class="why-us-grid">
+                    <div class="why-us-card">
+                        <div class="icon">💡</div>
+                        <h3>Unparalleled Creativity</h3>
+                        <p>Our AI co-creates with you, understanding the nuances of light, color, and form to produce designs that are both beautiful and manufacturable.</p>
+                    </div>
+                    <div class="why-us-card">
+                        <div class="icon">🖼️</div>
+                        <h3>Photorealistic Visuals</h3>
+                        <p>See your designs come to life with stunning, high-fidelity images. Perfect for client presentations, marketing, or admiring your creation.</p>
+                    </div>
+                    <div class="why-us-card">
+                        <div class="icon">🧊</div>
+                        <h3>Interactive 3D Models</h3>
+                        <p>Go beyond static images. Explore every design in a dynamic 3D viewer for a true sense of scale, proportion, and detail from every angle.</p>
+                    </div>
+                    <div class="why-us-card">
+                        <div class="icon">⚡</div>
+                        <h3>From Idea to Icon in Minutes</h3>
+                        <p>Drastically reduce your design cycle. Conceptualize and visualize in moments what used to take days of sketching and rendering.</p>
+                    </div>
                 </div>
             </section>
+
+            <section id="admin-panel" class="admin-panel" style="display: none;">
+                <h2>Admin Panel</h2>
+                <form id="admin-upload-form" class="admin-form">
+                    <div class="input-group">
+                        <label for="admin-file-upload">Upload New Gemstone for Gallery</label>
+                        <input type="file" id="admin-file-upload" accept="image/*">
+                    </div>
+                    <button type="submit" id="add-to-gallery-btn" class="generate-button">Add to Gallery</button>
+                    <p id="admin-status" class="admin-status"></p>
+                </form>
+            </section>
+
+            <section id="showcase-gallery" class="showcase-gallery">
+                <h2>Showcase Gallery</h2>
+                <div id="showcase-grid" class="showcase-grid">
+                    <!-- Gallery items will be dynamically inserted here -->
+                </div>
+            </section>
+            
+            <section id="your-creations-section" class="your-creations-section" style="display: none;">
+                <h2>Your Creations</h2>
+                 <div id="gallery-content" class="gallery-grid">
+                    <!-- User-generated cards will be prepended here -->
+                </div>
+            </section>
+
+            <section id="my-creations-section" class="my-creations-section" style="display: none;">
+                <h2>My Saved Creations</h2>
+                <div id="my-creations-grid" class="showcase-grid">
+                    <!-- User's saved creations will be dynamically inserted here -->
+                </div>
+            </section>
+
+            <section id="pricing-section" class="pricing-section">
+                <h2>Find a Plan That's Right For You</h2>
+                <div class="pricing-grid">
+                    <div class="pricing-tier">
+                        <h3>Free</h3>
+                        <div class="price">$0<span></span></div>
+                        <p>Perfect for getting started. Register to get 3 free attempts.</p>
+                        <ul>
+                            <li>✔️ 3 free AI design generations</li>
+                            <li>✔️ Standard image quality</li>
+                            <li>✔️ Access to basic styles</li>
+                            <li>✔️ Watermarked images</li>
+                            <li>✔️ 3D viewer access</li>
+                            <li>✔️ Save designs to your gallery</li>
+                        </ul>
+                        <button class="pricing-button" data-plan="free">Get Started</button>
+                    </div>
+                    <div class="pricing-tier recommended">
+                        <h3>Pro</h3>
+                        <div class="price">$7<span>/month</span></div>
+                        <p>For enthusiasts and professionals who need more power.</p>
+                        <ul>
+                            <li>✔️ 50 AI design generations / month</li>
+                            <li>✔️ High-resolution images</li>
+                            <li>✔️ Full access to all jewelry styles</li>
+                            <li>✔️ No watermarks</li>
+                        </ul>
+                        <button class="pricing-button" data-plan="pro">Choose Pro</button>
+                    </div>
+                    <div class="pricing-tier">
+                        <h3>Elite</h3>
+                        <div class="price">$14<span>/month</span></div>
+                        <p>The ultimate toolkit for designers and businesses.</p>
+                        <ul>
+                            <li>✔️ Unlimited AI design generations</li>
+                            <li>✔️ 4K ultra-HD image downloads</li>
+                            <li>✔️ Export 3D models (.obj, .stl)</li>
+                            <li>✔️ Priority customer support</li>
+                            <li>✔️ Early access to new features</li>
+                        </ul>
+                        <button class="pricing-button" data-plan="elite">Go Elite</button>
+                    </div>
+                </div>
+            </section>
+
         </main>
         
         <footer>
             <p>&copy; 2024 GemVision AI. Designs are for illustrative purposes.</p>
         </footer>
 
+        <!-- Modals Container -->
+
+        <!-- Authentication Modal -->
+        <div id="auth-modal" class="modal-container" style="display: none;">
+            <div class="modal-content">
+                <button id="auth-close-btn" class="close-btn">&times;</button>
+                <div id="login-view">
+                    <h2>Welcome Back</h2>
+                    <form id="login-form">
+                        <div class="input-group">
+                            <label for="login-email">Email</label>
+                            <input type="email" id="login-email" required>
+                        </div>
+                        <div class="input-group">
+                            <label for="login-password">Password</label>
+                            <input type="password" id="login-password" required>
+                        </div>
+                        <button type="submit" class="generate-button">Login</button>
+                    </form>
+                    <p class="auth-toggle-text">Don't have an account? <a href="#" id="show-register-view">Register</a></p>
+                </div>
+                <div id="register-view" style="display: none;">
+                    <h2>Create Your Account</h2>
+                    <form id="register-form">
+                        <div class="input-group">
+                            <label for="register-email">Email</label>
+                            <input type="email" id="register-email" required>
+                        </div>
+                        <div class="input-group">
+                            <label for="register-password">Password</label>
+                            <input type="password" id="register-password" minlength="6" required>
+                        </div>
+                         <div class="input-group">
+                            <label for="register-confirm-password">Confirm Password</label>
+                            <input type="password" id="register-confirm-password" minlength="6" required>
+                        </div>
+                        <button type="submit" class="generate-button">Create Account</button>
+                    </form>
+                    <p class="auth-toggle-text">Already have an account? <a href="#" id="show-login-view">Login</a></p>
+                </div>
+                 <p class="auth-disclaimer">
+                    For demo purposes, your account is stored locally in your browser and is not accessible on other devices.
+                </p>
+            </div>
+        </div>
+        
+        <!-- Profile Modal -->
+        <div id="profile-modal" class="modal-container" style="display: none;">
+            <div class="modal-content">
+                <button id="profile-close-btn" class="close-btn">&times;</button>
+                <h2>My Profile</h2>
+                <div id="profile-view">
+                    <div class="profile-info-group">
+                        <label>Email</label>
+                        <p id="profile-email"></p>
+                    </div>
+                    <div class="profile-info-group">
+                        <label>Free Attempts Remaining</label>
+                        <p id="profile-attempts"></p>
+                    </div>
+                    <button id="edit-profile-btn" class="secondary-button">Edit Profile</button>
+                </div>
+                <div id="profile-edit-view" style="display: none;">
+                    <form id="profile-edit-form">
+                        <div class="input-group">
+                            <label for="profile-edit-email">Email</label>
+                            <input type="email" id="profile-edit-email" required>
+                        </div>
+                        <button type="submit" id="save-profile-btn" class="generate-button">Save Changes</button>
+                    </form>
+                </div>
+                <hr class="modal-divider">
+                <button id="profile-logout-btn" class="logout-button">Logout</button>
+            </div>
+        </div>
+
+
         <div id="loading-overlay" class="loading-overlay" style="display: none;">
             <div class="loader"></div>
             <p id="loading-text">Weaving your designs...</p>
         </div>
 
-        <div id="camera-modal" class="modal" style="display: none;">
+        <div id="camera-modal" class="modal-container" style="display: none;">
             <div class="modal-content">
                 <video id="camera-stream" autoplay playsinline></video>
                 <button id="capture-btn" class="generate-button">Capture</button>

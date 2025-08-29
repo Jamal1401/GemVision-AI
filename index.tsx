@@ -17,14 +17,24 @@ document.addEventListener('DOMContentLoaded', () => {
     const dreamBtn = document.getElementById('dream-btn') as HTMLButtonElement;
     const smartDetailsBtn = document.getElementById('smart-details-btn') as HTMLButtonElement;
     const galleryContent = document.getElementById('gallery-content') as HTMLDivElement;
+    const showcaseGrid = document.getElementById('showcase-grid') as HTMLDivElement;
     const loadingOverlay = document.getElementById('loading-overlay') as HTMLDivElement;
     const loadingText = document.getElementById('loading-text') as HTMLParagraphElement;
     const fileNameSpan = document.getElementById('file-name') as HTMLSpanElement;
     const imagePreviewContainer = document.getElementById('image-preview-container') as HTMLDivElement;
     const imagePreview = document.getElementById('image-preview') as HTMLImageElement;
     const removeImageBtn = document.getElementById('remove-image-btn') as HTMLButtonElement;
-    const resultsGallery = document.getElementById('results-gallery') as HTMLElement;
+    const yourCreationsSection = document.getElementById('your-creations-section') as HTMLElement;
     const notificationContainer = document.getElementById('notification-container') as HTMLDivElement;
+    const generatorGate = document.getElementById('generator-gate') as HTMLDivElement;
+    const gateSignupBtn = document.getElementById('gate-signup-btn') as HTMLButtonElement;
+    const attemptsCounter = document.getElementById('attempts-counter') as HTMLParagraphElement;
+    const navActionBtn = document.getElementById('nav-action-btn') as HTMLAnchorElement;
+
+    // Video Preview Elements
+    const videoPreviewContainer = document.getElementById('video-preview-container') as HTMLDivElement;
+    const videoPreview = document.getElementById('video-preview') as HTMLVideoElement;
+    const captureFrameBtn = document.getElementById('capture-frame-btn') as HTMLButtonElement;
 
     // Camera Modal Elements
     const cameraModal = document.getElementById('camera-modal') as HTMLDivElement;
@@ -38,6 +48,43 @@ document.addEventListener('DOMContentLoaded', () => {
     const zoomCloseBtn = document.getElementById('zoom-close-btn') as HTMLSpanElement;
     const analyzeGemBtn = document.getElementById('analyze-gem-btn') as HTMLButtonElement;
     const zoomAnalysisResult = document.getElementById('zoom-analysis-result') as HTMLParagraphElement;
+    
+    // Auth Modal Elements
+    const authModal = document.getElementById('auth-modal') as HTMLDivElement;
+    const authCloseBtn = document.getElementById('auth-close-btn') as HTMLButtonElement;
+    const loginView = document.getElementById('login-view') as HTMLDivElement;
+    const registerView = document.getElementById('register-view') as HTMLDivElement;
+    const showRegisterViewLink = document.getElementById('show-register-view') as HTMLAnchorElement;
+    const showLoginViewLink = document.getElementById('show-login-view') as HTMLAnchorElement;
+    const loginForm = document.getElementById('login-form') as HTMLFormElement;
+    const registerForm = document.getElementById('register-form') as HTMLFormElement;
+    const loginEmailInput = document.getElementById('login-email') as HTMLInputElement;
+    const loginPasswordInput = document.getElementById('login-password') as HTMLInputElement;
+    const registerEmailInput = document.getElementById('register-email') as HTMLInputElement;
+    const registerPasswordInput = document.getElementById('register-password') as HTMLInputElement;
+    const registerConfirmPasswordInput = document.getElementById('register-confirm-password') as HTMLInputElement;
+
+    // Profile Modal Elements
+    const profileModal = document.getElementById('profile-modal') as HTMLDivElement;
+    const profileCloseBtn = document.getElementById('profile-close-btn') as HTMLButtonElement;
+    const profileView = document.getElementById('profile-view') as HTMLDivElement;
+    const profileEditView = document.getElementById('profile-edit-view') as HTMLDivElement;
+    const profileEmail = document.getElementById('profile-email') as HTMLParagraphElement;
+    const profileAttempts = document.getElementById('profile-attempts') as HTMLParagraphElement;
+    const editProfileBtn = document.getElementById('edit-profile-btn') as HTMLButtonElement;
+    const profileEditForm = document.getElementById('profile-edit-form') as HTMLFormElement;
+    const profileEditEmailInput = document.getElementById('profile-edit-email') as HTMLInputElement;
+    const profileLogoutBtn = document.getElementById('profile-logout-btn') as HTMLButtonElement;
+
+    // Admin Panel Elements
+    const adminPanel = document.getElementById('admin-panel') as HTMLElement;
+    const adminUploadForm = document.getElementById('admin-upload-form') as HTMLFormElement;
+    const adminFileUpload = document.getElementById('admin-file-upload') as HTMLInputElement;
+    const adminStatus = document.getElementById('admin-status') as HTMLParagraphElement;
+
+    // My Creations Elements
+    const myCreationsSection = document.getElementById('my-creations-section') as HTMLElement;
+    const myCreationsGrid = document.getElementById('my-creations-grid') as HTMLDivElement;
 
 
     // --- State Management ---
@@ -54,6 +101,10 @@ document.addEventListener('DOMContentLoaded', () => {
         "Almost there..."
     ];
     let loadingInterval: number;
+    
+    // Auth State
+    let currentUser: { email: string; attemptsLeft: number; plan: 'free' | 'pro' | 'elite' | 'admin' } | null = null;
+    const ADMIN_EMAIL = 'admin@gemvision.ai';
 
 
     // --- Gemini API Initialization ---
@@ -67,15 +118,27 @@ document.addEventListener('DOMContentLoaded', () => {
         blueprint: string;
         imagePrompt: string;
     }
-
-    // --- Functions ---
     
+    interface ShowcaseItem {
+        id: string;
+        gemstoneImage: string;
+        designImage: string;
+        name: string;
+        description: string;
+        metals?: string[];
+        blueprint?: string;
+        imagePrompt?: string;
+    }
+    
+    // --- Functions ---
+
     /**
      * Shows a toast notification.
      * @param message The message to display.
      * @param type The type of notification ('error', 'success').
+     * @param duration The duration in ms. 0 for permanent.
      */
-    function showNotification(message: string, type: 'error' | 'success' = 'error') {
+    function showNotification(message: string, type: 'error' | 'success' = 'error', duration: number = 5000) {
         const toast = document.createElement('div');
         toast.className = `toast ${type}`;
         toast.textContent = message;
@@ -85,30 +148,87 @@ document.addEventListener('DOMContentLoaded', () => {
             toast.style.opacity = '1';
         }, 10);
 
+        if (duration > 0) {
+            setTimeout(() => {
+                toast.style.opacity = '0';
+                setTimeout(() => toast.remove(), 500);
+            }, duration);
+        }
+    }
+    
+    /**
+     * Hashes a password using the browser's SubtleCrypto API.
+     * @param password The password string to hash.
+     * @returns A promise that resolves to a hex-encoded SHA-256 hash.
+     */
+    async function hashPassword(password: string): Promise<string> {
+        const encoder = new TextEncoder();
+        const data = encoder.encode(password);
+        const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+        const hashArray = Array.from(new Uint8Array(hashBuffer));
+        return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+    }
 
-        setTimeout(() => {
-            toast.style.opacity = '0';
-            setTimeout(() => toast.remove(), 500);
-        }, 5000);
+    /**
+     * Checks if localStorage is available and writable.
+     */
+    function isLocalStorageAvailable(): boolean {
+        try {
+            const testKey = '__gemvision_test__';
+            localStorage.setItem(testKey, testKey);
+            localStorage.removeItem(testKey);
+            return true;
+        } catch (e) {
+            return false;
+        }
     }
 
     /**
      * Updates the state of the generate button based on input.
      */
     function updateGenerateButtonState() {
-        generateBtn.disabled = !uploadedFile || !designPromptInput.value.trim();
+        if (currentUser) {
+            // Conditions for the button to be DISABLED
+            const outOfAttempts = currentUser.attemptsLeft <= 0;
+            const missingInputs = !uploadedFile || !designPromptInput.value.trim();
+
+            generateBtn.disabled = outOfAttempts || missingInputs;
+
+            // Update tooltip based on the reason it's disabled or enabled
+            if (outOfAttempts) {
+                generateBtn.dataset.tooltip = "You've used all your free attempts. Please upgrade to a Pro plan to continue generating.";
+            } else if (missingInputs) {
+                generateBtn.dataset.tooltip = "Please upload a gemstone and describe your design idea.";
+            } else {
+                generateBtn.dataset.tooltip = "Generate unique jewelry designs based on your gemstone and prompt.";
+            }
+        } else {
+            // Always disabled if not logged in
+            generateBtn.disabled = true;
+            generateBtn.dataset.tooltip = "Please log in or register to start designing.";
+        }
     }
 
     /**
-     * Handles file selection, converting the image to base64 and showing a preview.
+     * Handles file selection routing between image and video.
      * @param file The file selected by the user.
      */
     function handleFile(file: File) {
-        if (!file.type.startsWith('image/')) {
-            showNotification('Please select an image file.');
-            return;
+        if (file.type.startsWith('image/')) {
+            handleImageFile(file);
+        } else if (file.type.startsWith('video/')) {
+            handleVideoFile(file);
+        } else {
+            showNotification('Please select an image or video file.');
         }
+    }
 
+    /**
+     * Handles image file selection, converting the image to base64 and showing a preview.
+     * @param file The image file selected by the user.
+     */
+    function handleImageFile(file: File) {
+        resetFileInput();
         const reader = new FileReader();
         reader.onloadend = () => {
             const base64String = (reader.result as string).split(',')[1];
@@ -128,14 +248,38 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     /**
-     * Resets the file input and preview.
+     * Handles video file selection, showing a video player for frame capture.
+     * @param file The video file selected by the user.
+     */
+    function handleVideoFile(file: File) {
+        resetFileInput();
+        videoPreviewContainer.style.display = 'flex';
+        const videoUrl = URL.createObjectURL(file);
+        videoPreview.src = videoUrl;
+        fileNameSpan.textContent = file.name;
+    }
+
+
+    /**
+     * Resets the file input and all previews.
      */
     function resetFileInput() {
         uploadedFile = null;
         fileUpload.value = '';
+
+        // Image preview reset
         imagePreviewContainer.style.display = 'none';
         imagePreview.src = '#';
-        fileNameSpan.textContent = 'Upload Gemstone Photo';
+
+        // Video preview reset
+        if (videoPreview.src && videoPreview.src.startsWith('blob:')) {
+            URL.revokeObjectURL(videoPreview.src);
+        }
+        videoPreview.src = '';
+        videoPreviewContainer.style.display = 'none';
+
+
+        fileNameSpan.textContent = 'Upload Photo or Video';
         dreamBtn.disabled = true;
         smartDetailsBtn.disabled = true;
         updateGenerateButtonState();
@@ -244,7 +388,6 @@ document.addEventListener('DOMContentLoaded', () => {
         };
     }
 
-
     /**
      * Creates an HTML card for a generated design and appends it to the gallery.
      * @param design The design data.
@@ -271,6 +414,9 @@ document.addEventListener('DOMContentLoaded', () => {
                     <li><strong>Metal:</strong> ${design.metals.join(', ')}</li>
                     <li><strong>Details:</strong> ${design.blueprint}</li>
                 </ul>
+                 <div class="card-actions">
+                    <button class="save-design-btn">Save to My Creations</button>
+                </div>
             </div>
         `;
         galleryContent.prepend(card);
@@ -401,17 +547,27 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-
     /**
      * Main function to handle the design generation process.
      */
     async function generateDesigns() {
+        if (!currentUser) {
+            showNotification("Please log in to generate designs.", "error");
+            openAuthModal('login');
+            return;
+        }
+        
+        if (currentUser.attemptsLeft <= 0) {
+            showNotification("You have no attempts left. Please upgrade your plan.", "error");
+            return;
+        }
+
         if (generateBtn.disabled || !uploadedFile) return;
 
         toggleLoading(true);
         
         // Clear previous non-example results
-        document.querySelectorAll('.design-card:not(.example)').forEach(card => card.remove());
+        galleryContent.innerHTML = '';
 
         try {
             const imagePart = {
@@ -464,6 +620,9 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!designs || designs.length === 0) {
                 throw new Error("The AI could not generate designs. Please try a different prompt.");
             }
+            
+            // Make the creations section visible
+            yourCreationsSection.style.display = 'block';
 
             // Step 2: Generate images for each design
             for (let i = 0; i < designs.length; i++) {
@@ -484,6 +643,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 createDesignCard(design, imageUrl);
             }
+            
+            // Decrement and save attempts
+            currentUser.attemptsLeft--;
+            saveCurrentUserState();
+            updateAuthStateUI();
+
 
         } catch (error) {
             console.error("Error generating designs:", error);
@@ -492,7 +657,7 @@ document.addEventListener('DOMContentLoaded', () => {
             toggleLoading(false);
              // Scroll after loading is confirmed to be off
             setTimeout(() => {
-                resultsGallery.scrollIntoView({ behavior: 'smooth' });
+                yourCreationsSection.scrollIntoView({ behavior: 'smooth' });
             }, 100);
         }
     }
@@ -564,6 +729,305 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    /**
+     * Handles saving a generated design to the user's personal gallery.
+     * @param button The save button element that was clicked.
+     */
+    function handleSaveDesign(button: HTMLElement) {
+        if (!currentUser) {
+            showNotification("Please log in to save your creations.", "error");
+            openAuthModal('login');
+            return;
+        }
+
+        const card = button.closest('.design-card') as HTMLElement;
+        if (!card) return;
+
+        const design: Design = JSON.parse(card.dataset.design || '{}');
+        const designImageUrl = card.dataset.imageUrl || '';
+
+        if (!uploadedFile || !designImageUrl) {
+            showNotification("Could not save design. Missing image data.", "error");
+            return;
+        }
+
+        const gemstoneImageUrl = `data:${uploadedFile.mimeType};base64,${uploadedFile.base64}`;
+
+        const newItem: ShowcaseItem = {
+            id: `item-${Date.now()}-${Math.random()}`,
+            gemstoneImage: gemstoneImageUrl,
+            designImage: designImageUrl,
+            name: design.name,
+            description: design.description,
+            metals: design.metals,
+            blueprint: design.blueprint,
+            imagePrompt: design.imagePrompt,
+        };
+
+        try {
+            const userCreationsKey = `gemvision_creations_${currentUser.email}`;
+            let myCreations: ShowcaseItem[] = JSON.parse(localStorage.getItem(userCreationsKey) || '[]');
+            myCreations.unshift(newItem); // Add to the beginning
+            localStorage.setItem(userCreationsKey, JSON.stringify(myCreations));
+
+            showNotification("Design saved to My Creations!", "success");
+            renderMyCreationsGallery();
+
+            // Disable button to prevent duplicates
+            button.textContent = 'Saved!';
+            (button as HTMLButtonElement).disabled = true;
+
+        } catch (error) {
+            console.error("Error saving design:", error);
+            showNotification("An error occurred while saving the design.", "error");
+        }
+    }
+
+
+    // --- Auth, Profile & Admin Functions ---
+
+    function openAuthModal(view: 'login' | 'register' = 'login') {
+        if (view === 'login') {
+            loginView.style.display = 'block';
+            registerView.style.display = 'none';
+        } else {
+            loginView.style.display = 'none';
+            registerView.style.display = 'block';
+        }
+        authModal.style.display = 'flex';
+    }
+
+    function closeAuthModal() {
+        authModal.style.display = 'none';
+    }
+
+    function openProfileModal() {
+        if (!currentUser) return;
+        // Populate profile data
+        profileEmail.textContent = currentUser.email;
+        profileAttempts.textContent = currentUser.attemptsLeft.toString();
+        profileEditEmailInput.value = currentUser.email;
+
+        // Reset to view mode
+        profileView.style.display = 'block';
+        profileEditView.style.display = 'none';
+
+        profileModal.style.display = 'flex';
+    }
+
+    function closeProfileModal() {
+        profileModal.style.display = 'none';
+    }
+
+
+    function updateAuthStateUI() {
+        const isAdmin = currentUser && currentUser.email === ADMIN_EMAIL;
+        if (currentUser) {
+            navActionBtn.textContent = 'My Profile';
+            generatorGate.classList.add('hidden');
+            attemptsCounter.textContent = `You have ${currentUser.attemptsLeft} free attempts remaining.`;
+            attemptsCounter.style.display = 'block';
+            adminPanel.style.display = isAdmin ? 'block' : 'none';
+        } else {
+            navActionBtn.textContent = 'Login / Register';
+            generatorGate.classList.remove('hidden');
+            attemptsCounter.style.display = 'none';
+            adminPanel.style.display = 'none';
+        }
+        updateGenerateButtonState();
+    }
+    
+    function saveCurrentUserState() {
+        if (currentUser) {
+            localStorage.setItem('gemvision_currentUser', JSON.stringify(currentUser));
+             // Also update the master user list in case attempts changed
+            const users = JSON.parse(localStorage.getItem('gemvision_users') || '{}');
+            const userData = users[currentUser.email];
+            if (userData) {
+                users[currentUser.email] = {...userData, attemptsLeft: currentUser.attemptsLeft};
+                localStorage.setItem('gemvision_users', JSON.stringify(users));
+            }
+        } else {
+            localStorage.removeItem('gemvision_currentUser');
+        }
+    }
+    
+    function handleLogout() {
+        currentUser = null;
+        saveCurrentUserState();
+        updateAuthStateUI();
+        closeProfileModal();
+        // Clear and hide the user's creations gallery
+        myCreationsGrid.innerHTML = '';
+        myCreationsSection.style.display = 'none';
+        showNotification("You have been logged out.", "success");
+    }
+    
+    /**
+     * Renders the public showcase gallery from localStorage.
+     */
+    function renderShowcaseGallery() {
+        const galleryItems: ShowcaseItem[] = JSON.parse(localStorage.getItem('gemvision_gallery') || '[]');
+        showcaseGrid.innerHTML = '';
+        if (galleryItems.length === 0) {
+            showcaseGrid.innerHTML = `<p class="empty-gallery-message">The Showcase Gallery is currently empty. The administrator can add new items.</p>`;
+            return;
+        }
+
+        galleryItems.forEach(item => {
+            const card = document.createElement('div');
+            card.className = 'showcase-card';
+            card.innerHTML = `
+                <div class="showcase-card-images">
+                    <img src="${item.gemstoneImage}" alt="Loose Gemstone">
+                    <img src="${item.designImage}" alt="${item.name}">
+                </div>
+                <div class="showcase-card-content">
+                    <h3>${item.name}</h3>
+                    <p>${item.description}</p>
+                </div>
+            `;
+            showcaseGrid.appendChild(card);
+        });
+    }
+
+    /**
+     * Renders the logged-in user's personal creations gallery.
+     */
+    function renderMyCreationsGallery() {
+        if (!currentUser) {
+            myCreationsSection.style.display = 'none';
+            return;
+        }
+
+        myCreationsSection.style.display = 'block'; // Always show section for logged-in users
+
+        const userCreationsKey = `gemvision_creations_${currentUser.email}`;
+        const creations: ShowcaseItem[] = JSON.parse(localStorage.getItem(userCreationsKey) || '[]');
+        
+        myCreationsGrid.innerHTML = ''; // Clear existing content
+
+        if (creations.length === 0) {
+            myCreationsGrid.innerHTML = `<p class="empty-gallery-message">You haven't saved any creations yet. Generate designs and click 'Save to My Creations' to start your collection!</p>`;
+            return;
+        }
+
+        creations.forEach(item => {
+            const card = document.createElement('div');
+            card.className = 'showcase-card';
+            card.innerHTML = `
+                <div class="showcase-card-images">
+                    <img src="${item.gemstoneImage}" alt="Loose Gemstone">
+                    <img src="${item.designImage}" alt="${item.name}">
+                </div>
+                <div class="showcase-card-content">
+                    <h3>${item.name}</h3>
+                    <p>${item.description}</p>
+                </div>
+            `;
+            myCreationsGrid.appendChild(card);
+        });
+    }
+
+    async function handleAddToShowcase(file: File) {
+        if (!file.type.startsWith('image/')) {
+            showNotification('Please select an image file.', 'error');
+            return;
+        }
+
+        const addToGalleryBtn = document.getElementById('add-to-gallery-btn') as HTMLButtonElement;
+        addToGalleryBtn.disabled = true;
+        adminStatus.textContent = 'Analyzing gemstone and generating designs... (This may take a minute)';
+
+        try {
+            const reader = new FileReader();
+            const base64String = await new Promise<string>((resolve, reject) => {
+                reader.onloadend = () => resolve((reader.result as string).split(',')[1]);
+                reader.onerror = reject;
+                reader.readAsDataURL(file);
+            });
+
+            const gemstoneImagePart = {
+                inlineData: { mimeType: file.type, data: base64String },
+            };
+            const gemstoneImageUrl = `data:${file.type};base64,${base64String}`;
+
+            const prompt = `
+                Based on the uploaded image of a gemstone, generate TWO distinct and creative jewelry design concepts.
+                For each concept, provide:
+                1. A creative name for the jewelry piece.
+                2. A captivating one-sentence description.
+                3. A detailed, artistic prompt for an image generation model to create a photorealistic image of the final product.
+            `;
+            
+            // Step 1: Generate the two design concepts
+            const designResponse = await ai.models.generateContent({
+                model: "gemini-2.5-flash",
+                contents: { parts: [gemstoneImagePart, { text: prompt }] },
+                config: {
+                    responseMimeType: "application/json",
+                    responseSchema: {
+                        type: Type.OBJECT,
+                        properties: {
+                            designs: {
+                                type: Type.ARRAY,
+                                items: {
+                                    type: Type.OBJECT,
+                                    properties: {
+                                        name: { type: Type.STRING },
+                                        description: { type: Type.STRING },
+                                        imagePrompt: { type: Type.STRING },
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+            const designData = JSON.parse(designResponse.text.trim());
+
+            if (!designData.designs || designData.designs.length === 0) {
+                throw new Error("AI failed to generate design concepts.");
+            }
+
+            // Step 2: Generate an image for each design concept and save
+            let galleryItems: ShowcaseItem[] = JSON.parse(localStorage.getItem('gemvision_gallery') || '[]');
+
+            for (const design of designData.designs) {
+                adminStatus.textContent = `Generating image for "${design.name}"...`;
+                const imageResponse = await ai.models.generateImages({
+                    model: 'imagen-4.0-generate-001',
+                    prompt: `${design.imagePrompt}, high jewelry photography, dramatic lighting, macro details`,
+                    config: { numberOfImages: 1, outputMimeType: 'image/jpeg', aspectRatio: '1:1' },
+                });
+                
+                const designImageBase64 = imageResponse.generatedImages[0].image.imageBytes;
+                const designImageUrl = `data:image/jpeg;base64,${designImageBase64}`;
+
+                const newItem: ShowcaseItem = {
+                    id: `item-${Date.now()}-${Math.random()}`,
+                    gemstoneImage: gemstoneImageUrl,
+                    designImage: designImageUrl,
+                    name: design.name,
+                    description: design.description,
+                };
+                galleryItems.unshift(newItem); // Add to the beginning of the array
+            }
+
+            localStorage.setItem('gemvision_gallery', JSON.stringify(galleryItems));
+            renderShowcaseGallery();
+            showNotification('New designs added to the showcase gallery!', 'success');
+            adminUploadForm.reset();
+
+        } catch (error) {
+            console.error("Error adding to showcase:", error);
+            showNotification('An error occurred while adding to the gallery.', 'error');
+        } finally {
+            addToGalleryBtn.disabled = false;
+            adminStatus.textContent = '';
+        }
+    }
+
 
     // --- Event Listeners ---
     fileUpload.addEventListener('change', () => {
@@ -576,6 +1040,37 @@ document.addEventListener('DOMContentLoaded', () => {
     generateBtn.addEventListener('click', generateDesigns);
     dreamBtn.addEventListener('click', dreamUpPrompt);
     smartDetailsBtn.addEventListener('click', getSmartDetails);
+
+    captureFrameBtn.addEventListener('click', () => {
+        const canvas = document.createElement('canvas');
+        canvas.width = videoPreview.videoWidth;
+        canvas.height = videoPreview.videoHeight;
+        const context = canvas.getContext('2d');
+        if (!context) return;
+        
+        context.drawImage(videoPreview, 0, 0, canvas.width, canvas.height);
+        
+        const mimeType = 'image/jpeg';
+        const dataUrl = canvas.toDataURL(mimeType, 0.9);
+        const base64String = dataUrl.split(',')[1];
+        
+        uploadedFile = {
+            base64: base64String,
+            mimeType: mimeType
+        };
+
+        // Update UI to show the captured frame
+        imagePreview.src = dataUrl;
+        imagePreviewContainer.style.display = 'block';
+        videoPreviewContainer.style.display = 'none';
+        
+        // Enable buttons
+        dreamBtn.disabled = false;
+        smartDetailsBtn.disabled = false;
+        updateGenerateButtonState();
+
+        showNotification("Frame captured! You can now generate designs.", "success");
+    });
 
 
     // Camera Modal Listeners
@@ -591,7 +1086,7 @@ document.addEventListener('DOMContentLoaded', () => {
             canvas.toBlob((blob) => {
                 if (blob) {
                     const file = new File([blob], "camera-capture.jpg", { type: "image/jpeg" });
-                    handleFile(file);
+                    handleImageFile(file); // Use handleImageFile directly
                 }
             }, 'image/jpeg');
         }
@@ -599,56 +1094,217 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     // Gallery Listeners (using event delegation for zoom and 3D toggle)
-    galleryContent.addEventListener('click', (e) => {
+    document.body.addEventListener('click', (e) => {
         const target = e.target as HTMLElement;
 
-        // Handle 3D View Toggle
-        if (target.classList.contains('view-toggle-btn')) {
-            const card = target.closest('.design-card') as HTMLElement;
-            const viewerContainer = card.querySelector('.viewer-container') as HTMLDivElement;
-            const is3D = target.dataset.view === '3d';
-
-            if (is3D) {
-                // Switch back to 2D
-                if ((viewerContainer as any).cleanup) {
-                    (viewerContainer as any).cleanup();
-                }
-                card.classList.remove('view-3d');
-                target.dataset.view = '2d';
-                target.textContent = 'View in 3D';
-            } else {
-                // Switch to 3D
-                const design: Design = JSON.parse(card.dataset.design || '{}');
-                const imageUrl = card.dataset.imageUrl || '';
-                // Initialize viewer only if it doesn't have a canvas yet
-                if (viewerContainer && !viewerContainer.querySelector('canvas')) {
-                    init3DViewer(viewerContainer, imageUrl, design);
-                }
-                card.classList.add('view-3d');
-                target.dataset.view = '3d';
-                target.textContent = 'View in 2D';
+        const designCard = target.closest('.design-card, .showcase-card');
+        if (designCard) {
+            // Handle Save Design
+            if (target.classList.contains('save-design-btn') && designCard.classList.contains('design-card')) {
+                handleSaveDesign(target);
+                return; // Prioritize save action
             }
-            return; // Stop further processing
-        }
         
-        // Handle Image Zoom
-        if (target.tagName === 'IMG' && target.closest('.design-card')) {
-            openImageZoom((target as HTMLImageElement).src);
+             // Handle Image Zoom on any image inside the cards
+            if (target.tagName === 'IMG') {
+                openImageZoom((target as HTMLImageElement).src);
+                return; // Prioritize zoom
+            }
+            
+            // Handle 3D View Toggle (only for user-generated cards)
+            if (target.classList.contains('view-toggle-btn') && designCard.classList.contains('design-card')) {
+                const card = designCard as HTMLElement;
+                const viewerContainer = card.querySelector('.viewer-container') as HTMLDivElement;
+                const is3D = target.dataset.view === '3d';
+
+                if (is3D) {
+                    // Switch back to 2D
+                    if ((viewerContainer as any).cleanup) {
+                        (viewerContainer as any).cleanup();
+                    }
+                    card.classList.remove('view-3d');
+                    target.dataset.view = '2d';
+                    target.textContent = 'View in 3D';
+                } else {
+                    // Switch to 3D
+                    const design: Design = JSON.parse(card.dataset.design || '{}');
+                    const imageUrl = card.dataset.imageUrl || '';
+                    // Initialize viewer only if it doesn't have a canvas yet
+                    if (viewerContainer && !viewerContainer.querySelector('canvas')) {
+                        init3DViewer(viewerContainer, imageUrl, design);
+                    }
+                    card.classList.add('view-3d');
+                    target.dataset.view = '3d';
+                    target.textContent = 'View in 2D';
+                }
+            }
         }
     });
 
     zoomCloseBtn.addEventListener('click', closeImageZoom);
     imageZoomModal.addEventListener('click', (e) => {
-        // Close if the click is on the modal background, not the content wrapper
         if (e.target === imageZoomModal) {
             closeImageZoom();
         }
     });
     analyzeGemBtn.addEventListener('click', analyzeZoomedImage);
+    
+    // Auth, Profile & Admin Listeners
+    navActionBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        if (currentUser) {
+            openProfileModal();
+        } else {
+            openAuthModal('login');
+        }
+    });
+    
+    gateSignupBtn.addEventListener('click', () => openAuthModal('register'));
+    document.querySelectorAll('.pricing-button[data-plan="free"]').forEach(btn => {
+        btn.addEventListener('click', () => openAuthModal('register'));
+    });
+
+    authCloseBtn.addEventListener('click', closeAuthModal);
+    authModal.addEventListener('click', (e) => {
+        if (e.target === authModal) {
+            closeAuthModal();
+        }
+    });
+    showRegisterViewLink.addEventListener('click', (e) => {
+        e.preventDefault();
+        openAuthModal('register');
+    });
+    showLoginViewLink.addEventListener('click', (e) => {
+        e.preventDefault();
+        openAuthModal('login');
+    });
+    
+    registerForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const email = registerEmailInput.value;
+        const password = registerPasswordInput.value;
+        const confirmPassword = registerConfirmPasswordInput.value;
+        
+        if (password !== confirmPassword) {
+            showNotification("Passwords do not match.", "error");
+            return;
+        }
+
+        const users = JSON.parse(localStorage.getItem('gemvision_users') || '{}');
+        if (users[email] || email === ADMIN_EMAIL) {
+            showNotification("An account with this email already exists.", "error");
+            return;
+        }
+
+        const hashedPassword = await hashPassword(password);
+        users[email] = { password: hashedPassword, attemptsLeft: 3, plan: 'free' };
+        localStorage.setItem('gemvision_users', JSON.stringify(users));
+
+        currentUser = { email: email, attemptsLeft: 3, plan: 'free' };
+        saveCurrentUserState();
+        updateAuthStateUI();
+        renderMyCreationsGallery(); // Render empty gallery on new account
+        closeAuthModal();
+        showNotification("Account created successfully! You can now start designing.", "success");
+    });
+    
+    loginForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const email = loginEmailInput.value;
+        const password = loginPasswordInput.value;
+
+        // Special Admin Login
+        if (email === ADMIN_EMAIL && password === 'admin123') {
+            currentUser = { email: ADMIN_EMAIL, attemptsLeft: 999, plan: 'admin' }; // Admin has many attempts
+            saveCurrentUserState();
+            updateAuthStateUI();
+            closeAuthModal();
+            showNotification('Welcome, Administrator!', 'success');
+            renderMyCreationsGallery(); // Also render for admin
+            return;
+        }
+
+        const users = JSON.parse(localStorage.getItem('gemvision_users') || '{}');
+        const userData = users[email];
+        const enteredPasswordHash = await hashPassword(password);
+
+        if (userData && userData.password === enteredPasswordHash) {
+             currentUser = { email: email, attemptsLeft: userData.attemptsLeft, plan: userData.plan || 'free' };
+             saveCurrentUserState();
+             updateAuthStateUI();
+             renderMyCreationsGallery();
+             closeAuthModal();
+             showNotification(`Welcome back, ${email}!`, 'success');
+        } else {
+             showNotification("Invalid email or password.", "error");
+        }
+    });
+
+    // Profile Modal Listeners
+    profileCloseBtn.addEventListener('click', closeProfileModal);
+    profileModal.addEventListener('click', (e) => {
+        if (e.target === profileModal) {
+            closeProfileModal();
+        }
+    });
+    profileLogoutBtn.addEventListener('click', handleLogout);
+
+    editProfileBtn.addEventListener('click', () => {
+        profileView.style.display = 'none';
+        profileEditView.style.display = 'block';
+    });
+    
+    profileEditForm.addEventListener('submit', (e) => {
+        e.preventDefault();
+        // In a real app, you would handle password changes, etc.
+        // For now, we just acknowledge the save.
+        // The email (the key) cannot be changed in this simple simulation.
+        showNotification("Profile updated successfully!", "success");
+        profileView.style.display = 'block';
+        profileEditView.style.display = 'none';
+    });
+    
+    // Admin Panel Listener
+    adminUploadForm.addEventListener('submit', (e) => {
+        e.preventDefault();
+        if (adminFileUpload.files && adminFileUpload.files[0]) {
+            handleAddToShowcase(adminFileUpload.files[0]);
+        } else {
+            showNotification('Please select a file to upload.', 'error');
+        }
+    });
 
 
     // --- Initial State ---
-    dreamBtn.disabled = true;
-    smartDetailsBtn.disabled = true;
-    updateGenerateButtonState();
+    function initializeApp() {
+        if (!isLocalStorageAvailable()) {
+            showNotification(
+                "Account features are disabled. Your browser is blocking local storage, which is required to save your session.",
+                'error',
+                0
+            );
+            // Visually disable all auth-related UI
+            navActionBtn.style.display = 'none';
+            generatorGate.innerHTML = '<h3>Account features are disabled by your browser settings.</h3><p>Please enable cookies/site data to log in or register.</p>';
+            gateSignupBtn.disabled = true;
+            document.querySelectorAll('.pricing-button[data-plan="free"]').forEach(btn => {
+                (btn as HTMLButtonElement).disabled = true;
+            });
+            return; // Stop initialization of user state
+        }
+    
+        const storedUser = localStorage.getItem('gemvision_currentUser');
+        if (storedUser) {
+            currentUser = JSON.parse(storedUser);
+        } else {
+            currentUser = null;
+        }
+        updateAuthStateUI();
+        renderShowcaseGallery();
+        renderMyCreationsGallery();
+        dreamBtn.disabled = true;
+        smartDetailsBtn.disabled = true;
+    }
+    
+    initializeApp();
 });
