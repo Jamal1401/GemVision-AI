@@ -1457,10 +1457,32 @@ footer {
         padding: 0 1rem;
     }
     .hero h2 {
-        font-size: 2.5rem;
+        font-size: 2.2rem;
+    }
+    .hero p {
+        font-size: 1rem;
+    }
+    h2 {
+       font-size: 2rem;
     }
     .generator-section {
         padding: 1.5rem;
+    }
+     .file-input-group {
+        flex-wrap: wrap;
+    }
+    .dimension-group .dimension-inputs {
+        flex-direction: column;
+    }
+    .modal-content {
+        padding: 1.5rem;
+        max-width: 95vw;
+    }
+    .pricing-tier h3 {
+        font-size: 1.5rem;
+    }
+    .pricing-tier .price {
+        font-size: 2.5rem;
     }
     #notification-container {
         right: 10px;

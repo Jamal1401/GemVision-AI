@@ -485,12 +485,19 @@ document.addEventListener('DOMContentLoaded', () => {
      */
     async function startCamera() {
         try {
-            stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+            // Request the rear-facing camera
+            const constraints = {
+                video: {
+                    facingMode: 'environment' 
+                },
+                audio: false
+            };
+            stream = await navigator.mediaDevices.getUserMedia(constraints);
             cameraStream.srcObject = stream;
             cameraModal.style.display = 'flex';
         } catch (err) {
             console.error("Error accessing camera: ", err);
-            showNotification("Could not access camera. Please grant permission.");
+            showNotification("Could not access camera. Please grant permission and ensure you have a rear camera.", "error");
         }
     }
 
@@ -1181,14 +1188,15 @@ document.addEventListener('DOMContentLoaded', () => {
      * This function is now more robust to prevent invalid data from entering the flow.
      */
     function openPaymentMethodModal(button: HTMLButtonElement) {
-        const plan = button.dataset.plan as UserPlan;
-        const planName = button.dataset.planName;
+        const plan = button.getAttribute('data-plan') as UserPlan;
+        const planName = button.getAttribute('data-plan-name');
         const priceUsdCentsAttr = button.getAttribute('data-price-usd-cents');
         const priceInrCentsAttr = button.getAttribute('data-price-inr-cents');
 
         // Stricter initial validation
         if (!plan || !planName || !priceUsdCentsAttr || !priceInrCentsAttr) {
-            showNotification("Cannot initiate payment: critical plan information is missing.", "error");
+            console.error("Missing plan data on button:", { plan, planName, priceUsdCentsAttr, priceInrCentsAttr });
+            showNotification("Cannot initiate payment: critical plan information is missing from the button.", "error");
             return;
         }
 
@@ -1196,6 +1204,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const priceInrCents = parseInt(priceInrCentsAttr, 10);
 
         if (isNaN(priceUsdCents) || isNaN(priceInrCents) || priceUsdCents <= 0 || priceInrCents <= 0) {
+             console.error("Invalid price data on button:", { priceUsdCentsAttr, priceInrCentsAttr });
             showNotification("Cannot initiate payment: price information is invalid.", "error");
             return;
         }
@@ -1253,19 +1262,39 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         const { planName, priceUsdCents, priceInrCents } = selectedPlanForPayment;
+        
+        // Final, ultra-robust validation block.
+        // Step 1: Validate currency
+        if (currentCurrency !== 'usd' && currentCurrency !== 'inr') {
+            console.error('Invalid currency detected:', currentCurrency);
+            showNotification('An unexpected currency error occurred. Please try again.', 'error');
+            return;
+        }
+
+        // Step 2: Select the correct price based on the validated currency
         const priceCents = currentCurrency === 'usd' ? priceUsdCents : priceInrCents;
 
-        // Final "pre-flight" check to guarantee data integrity before the API call.
-        if (!planName || !Number.isInteger(priceCents) || priceCents <= 0) {
-            console.error('Invalid payment data just before Stripe call:', { planName, priceCents });
-            showNotification('A problem occurred with the payment details. Please try again.', 'error');
+        // Step 3: Final validation of all data being sent to Stripe
+        if (!planName || typeof planName !== 'string' || planName.trim() === '') {
+            console.error('Invalid plan name for Stripe:', planName);
+            showNotification('Plan name is missing or invalid.', 'error');
+            return;
+        }
+        if (!Number.isInteger(priceCents) || priceCents <= 0) {
+            console.error('Invalid price for Stripe:', { priceCents, currency: currentCurrency });
+            showNotification('Price is invalid. Please select your plan again.', 'error');
+            return;
+        }
+        if (!currentUser.email) {
+            console.error('Missing customer email for Stripe');
+            showNotification('Your email is missing. Please log in again.', 'error');
             return;
         }
 
         toggleLoading(true);
 
         try {
-            await stripe.redirectToCheckout({
+            const checkoutObject = {
                 lineItems: [{
                     price_data: {
                         currency: currentCurrency,
@@ -1283,7 +1312,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 successUrl: `${window.location.origin}${window.location.pathname}?checkout_status=success&plan=${selectedPlanForPayment.plan}`,
                 cancelUrl: `${window.location.origin}${window.location.pathname}?checkout_status=cancel`,
                 customerEmail: currentUser.email,
-            });
+            };
+            
+            console.log("Redirecting to Stripe with:", JSON.stringify(checkoutObject, null, 2));
+
+            await stripe.redirectToCheckout(checkoutObject);
+
         } catch (error) {
             console.error("Stripe checkout error:", error);
             showNotification("Could not redirect to payment page. Please try again.", "error");
