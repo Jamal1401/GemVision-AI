@@ -312,8 +312,9 @@
         <div id="profile-modal" class="modal-container" style="display: none;">
             <div class="modal-content">
                 <button id="profile-close-btn" class="close-btn">&times;</button>
-                <h2>My Profile</h2>
+                
                 <div id="profile-view">
+                    <h2>My Profile</h2>
                     <div class="profile-picture-container">
                         <img id="profile-picture-display" src="#" alt="Profile Picture">
                     </div>
@@ -329,9 +330,20 @@
                         <label>Free Attempts Remaining</label>
                         <p id="profile-attempts"></p>
                     </div>
+                    <hr class="modal-divider">
+                    <div id="connected-accounts-section" class="connected-accounts-section">
+                        <h3>Connected Accounts</h3>
+                        <ul id="connected-accounts-list" class="connected-accounts-list">
+                           <!-- JS will populate this -->
+                        </ul>
+                    </div>
+                    <hr class="modal-divider">
                     <button id="edit-profile-btn" class="secondary-button">Edit Profile</button>
+                    <button id="profile-logout-btn" class="logout-button">Logout</button>
                 </div>
+
                 <div id="profile-edit-view" style="display: none;">
+                    <h2>Edit Profile</h2>
                     <form id="profile-edit-form">
                          <div class="profile-picture-edit-container">
                             <img id="profile-edit-preview" src="#" alt="Profile preview">
@@ -345,8 +357,6 @@
                         <button type="submit" id="save-profile-btn" class="generate-button">Save Changes</button>
                     </form>
                 </div>
-                <hr class="modal-divider">
-                <button id="profile-logout-btn" class="logout-button">Logout</button>
             </div>
         </div>
 
@@ -425,7 +435,7 @@
                             <p>Make your post stand out with a short, cinematic video!</p>
                             <button id="create-reel-btn" class="generate-button">✨ Create Reel</button>
                         </div>
-                        <button id="post-to-social-btn" class="generate-button">Post to Social (Save)</button>
+                        <button id="post-to-social-btn" class="generate-button has-tooltip" data-tooltip="">Post</button>
                     </div>
                 </div>
             </div>

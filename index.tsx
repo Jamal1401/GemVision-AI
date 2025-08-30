@@ -97,6 +97,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const profileEditPreview = document.getElementById('profile-edit-preview') as HTMLImageElement;
     const profileEditEmailInput = document.getElementById('profile-edit-email') as HTMLInputElement;
     const profileLogoutBtn = document.getElementById('profile-logout-btn') as HTMLButtonElement;
+    const connectedAccountsList = document.getElementById('connected-accounts-list') as HTMLUListElement;
 
     // Admin Panel Elements
     const adminPanel = document.getElementById('admin-panel') as HTMLElement;
@@ -166,11 +167,14 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // Auth State
     type UserPlan = 'free' | 'pro' | 'elite' | 'admin';
+    type SocialPlatform = 'x' | 'facebook' | 'instagram' | 'linkedin';
+
     let currentUser: { 
         email: string; 
         attemptsLeft: number; 
         plan: UserPlan;
         profilePicture?: string;
+        connectedAccounts: Record<SocialPlatform, boolean>;
     } | null = null;
     let registrationEmail: string | null = null; // Used for multi-step registration
     const ADMIN_EMAIL = 'admin@gemvision.ai';
@@ -188,7 +192,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // Share State
     let currentShareDesign: Design | null = null;
     let currentShareImageUrl: string | null = null;
-    let currentSharePlatform: 'x' | 'facebook' | 'instagram' | 'linkedin' = 'x';
+    let currentSharePlatform: SocialPlatform = 'x';
     let generatedReelUrl: string | null = null;
 
 
@@ -223,6 +227,7 @@ document.addEventListener('DOMContentLoaded', () => {
         videoUrl?: string;
         timestamp: number;
         designName: string;
+        posted: boolean; // To track if it was "posted" directly
     }
     
     // --- Functions ---
@@ -905,10 +910,53 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     /**
+     * Resizes an image from a base64 string for storage efficiency.
+     * @param base64Str The base64 string of the image.
+     * @param maxWidth The maximum width of the resized image.
+     * @param maxHeight The maximum height of the resized image.
+     * @returns A promise that resolves to the resized image as a base64 string.
+     */
+    function resizeImage(base64Str: string, maxWidth = 400, maxHeight = 400): Promise<string> {
+        return new Promise((resolve, reject) => {
+            const img = new Image();
+            img.src = base64Str;
+            img.onload = () => {
+                const canvas = document.createElement('canvas');
+                let { width, height } = img;
+    
+                if (width > height) {
+                    if (width > maxWidth) {
+                        height = Math.round(height * (maxWidth / width));
+                        width = maxWidth;
+                    }
+                } else {
+                    if (height > maxHeight) {
+                        width = Math.round(width * (maxHeight / height));
+                        height = maxHeight;
+                    }
+                }
+    
+                canvas.width = width;
+                canvas.height = height;
+                const ctx = canvas.getContext('2d');
+                if (!ctx) {
+                    return reject(new Error('Could not get canvas context'));
+                }
+                ctx.drawImage(img, 0, 0, width, height);
+                // Use JPEG for better compression, crucial for localStorage
+                resolve(canvas.toDataURL('image/jpeg', 0.9)); 
+            };
+            img.onerror = () => {
+                reject(new Error('Image could not be loaded for resizing.'));
+            };
+        });
+    }
+
+    /**
      * Handles saving a generated design to the user's personal gallery.
      * @param button The save button element that was clicked.
      */
-    function handleSaveDesign(button: HTMLElement) {
+    async function handleSaveDesign(button: HTMLElement) {
         if (!currentUser) {
             showNotification("Please log in to save your creations.", "error");
             openAuthModal('login');
@@ -917,29 +965,33 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const card = button.closest('.design-card') as HTMLElement;
         if (!card) return;
-
-        const design: Design = JSON.parse(card.dataset.design || '{}');
-        const designImageUrl = card.dataset.imageUrl || '';
-
-        if (!uploadedFile || !designImageUrl) {
-            showNotification("Could not save design. Missing image data.", "error");
-            return;
-        }
-
-        const gemstoneImageUrl = `data:${uploadedFile.mimeType};base64,${uploadedFile.base64}`;
-
-        const newItem: ShowcaseItem = {
-            id: `item-${Date.now()}-${Math.random()}`,
-            gemstoneImage: gemstoneImageUrl,
-            designImage: designImageUrl,
-            name: design.name,
-            description: design.description,
-            metals: design.metals,
-            blueprint: design.blueprint,
-            imagePrompt: design.imagePrompt,
-        };
+        
+        button.textContent = 'Saving...';
+        (button as HTMLButtonElement).disabled = true;
 
         try {
+            const design: Design = JSON.parse(card.dataset.design || '{}');
+            const designImageUrl = card.dataset.imageUrl || '';
+
+            if (!uploadedFile || !designImageUrl) {
+                throw new Error("Missing image data. Could not save design.");
+            }
+
+            // Resize images before saving to prevent quota errors
+            const resizedGemstoneImage = await resizeImage(`data:${uploadedFile.mimeType};base64,${uploadedFile.base64}`);
+            const resizedDesignImage = await resizeImage(designImageUrl);
+
+            const newItem: ShowcaseItem = {
+                id: `item-${Date.now()}-${Math.random()}`,
+                gemstoneImage: resizedGemstoneImage,
+                designImage: resizedDesignImage,
+                name: design.name,
+                description: design.description,
+                metals: design.metals,
+                blueprint: design.blueprint,
+                imagePrompt: design.imagePrompt,
+            };
+
             const userCreationsKey = `gemvision_creations_${currentUser.email}`;
             let myCreations: ShowcaseItem[] = JSON.parse(localStorage.getItem(userCreationsKey) || '[]');
             myCreations.unshift(newItem); // Add to the beginning
@@ -948,13 +1000,19 @@ document.addEventListener('DOMContentLoaded', () => {
             showNotification("Design saved to My Creations!", "success");
             renderMyCreationsGallery();
 
-            // Disable button to prevent duplicates
+            // Finalize button state
             button.textContent = 'Saved!';
-            (button as HTMLButtonElement).disabled = true;
 
-        } catch (error) {
+        } catch (error: any) {
             console.error("Error saving design:", error);
-            showNotification("An error occurred while saving the design.", "error");
+            if (error.name === 'QuotaExceededError' || (error.message && error.message.includes('exceeded the quota'))) {
+                showNotification("Could not save. Your design storage is full.", "error");
+            } else {
+                showNotification(`An error occurred while saving: ${error.message}`, "error");
+            }
+            // Re-enable button on failure
+            button.textContent = 'Save';
+            (button as HTMLButtonElement).disabled = false;
         }
     }
 
@@ -996,6 +1054,8 @@ document.addEventListener('DOMContentLoaded', () => {
         profilePlan.textContent = currentUser.plan;
         profileAttempts.textContent = currentUser.plan === 'free' ? currentUser.attemptsLeft.toString() : 'Unlimited';
         profileEditEmailInput.value = currentUser.email;
+        
+        renderConnectedAccounts();
 
         // Reset to view mode
         profileView.style.display = 'block';
@@ -1047,7 +1107,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     ...userData, 
                     attemptsLeft: currentUser.attemptsLeft, 
                     plan: currentUser.plan,
-                    profilePicture: currentUser.profilePicture
+                    profilePicture: currentUser.profilePicture,
+                    connectedAccounts: currentUser.connectedAccounts,
                 };
                 localStorage.setItem('gemvision_users', JSON.stringify(users));
             }
@@ -1056,41 +1117,8 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
     
-    /**
-     * Resizes an image from a base64 string.
-     * @param base64Str The base64 string of the image.
-     * @param maxWidth The maximum width of the resized image.
-     * @param maxHeight The maximum height of the resized image.
-     * @returns A promise that resolves to the resized image as a base64 string.
-     */
-    function resizeImage(base64Str: string, maxWidth = 256, maxHeight = 256): Promise<string> {
-        return new Promise((resolve) => {
-            const img = new Image();
-            img.src = base64Str;
-            img.onload = () => {
-                const canvas = document.createElement('canvas');
-                let width = img.width;
-                let height = img.height;
-
-                if (width > height) {
-                    if (width > maxWidth) {
-                        height *= maxWidth / width;
-                        width = maxWidth;
-                    }
-                } else {
-                    if (height > maxHeight) {
-                        width *= maxHeight / height;
-                        height = maxHeight;
-                    }
-                }
-                canvas.width = width;
-                canvas.height = height;
-                const ctx = canvas.getContext('2d');
-                if (!ctx) return;
-                ctx.drawImage(img, 0, 0, width, height);
-                resolve(canvas.toDataURL('image/jpeg', 0.9)); // Use JPEG for better compression
-            };
-        });
+    async function resizeProfilePicture(base64Str: string, maxWidth = 256, maxHeight = 256): Promise<string> {
+        return resizeImage(base64Str, maxWidth, maxHeight);
     }
 
     async function handleProfilePictureUpload(file: File) {
@@ -1100,7 +1128,7 @@ document.addEventListener('DOMContentLoaded', () => {
         reader.onloadend = async () => {
             try {
                 const originalBase64 = reader.result as string;
-                const resizedBase64 = await resizeImage(originalBase64);
+                const resizedBase64 = await resizeProfilePicture(originalBase64);
     
                 // Update UI immediately
                 profileEditPreview.src = resizedBase64;
@@ -1196,6 +1224,55 @@ document.addEventListener('DOMContentLoaded', () => {
             `;
             myCreationsGrid.appendChild(card);
         });
+    }
+    
+    /**
+     * Renders the connected accounts section in the profile modal.
+     */
+    function renderConnectedAccounts() {
+        if (!currentUser) return;
+    
+        const platforms: { id: SocialPlatform; name: string }[] = [
+            { id: 'x', name: 'X' },
+            { id: 'facebook', name: 'Facebook' },
+            { id: 'instagram', name: 'Instagram' },
+            { id: 'linkedin', name: 'LinkedIn' },
+        ];
+    
+        connectedAccountsList.innerHTML = '';
+        platforms.forEach(platform => {
+            const isConnected = currentUser.connectedAccounts[platform.id];
+            const li = document.createElement('li');
+            li.className = 'connected-account-item';
+            li.innerHTML = `
+                <div class="platform-info">
+                    <div class="platform-icon-container">${getPlatformIcon(platform.id)}</div>
+                    <span>${platform.name}</span>
+                </div>
+                <button 
+                    class="${isConnected ? 'disconnect-account-btn' : 'connect-account-btn'}" 
+                    data-platform="${platform.id}">
+                    ${isConnected ? 'Disconnect' : 'Connect'}
+                </button>
+            `;
+            connectedAccountsList.appendChild(li);
+        });
+    }
+
+    /**
+     * Handles the connect/disconnect button click for social accounts.
+     * @param platform The social media platform id.
+     */
+    function handleAccountConnectionToggle(platform: SocialPlatform) {
+        if (!currentUser) return;
+    
+        currentUser.connectedAccounts[platform] = !currentUser.connectedAccounts[platform];
+        saveCurrentUserState();
+        renderConnectedAccounts();
+        showNotification(
+            `${platform.charAt(0).toUpperCase() + platform.slice(1)} account ${currentUser.connectedAccounts[platform] ? 'connected' : 'disconnected'}.`,
+            'success'
+        );
     }
 
     async function handleAddToShowcase(file: File) {
@@ -1473,6 +1550,7 @@ document.addEventListener('DOMContentLoaded', () => {
         sharePreviewImage.src = currentShareImageUrl;
         shareVideoContainer.style.display = 'none';
         shareVideoLoader.style.display = 'none';
+        shareVideoLoader.classList.remove('error');
         shareVideoPreview.style.display = 'none';
         shareVideoPreview.src = '';
         shareVideoDownloadBtn.style.display = 'none';
@@ -1496,7 +1574,7 @@ document.addEventListener('DOMContentLoaded', () => {
      * @param tab The tab button that was clicked.
      */
     function switchShareTab(tab: HTMLButtonElement) {
-        const platform = tab.dataset.platform as typeof currentSharePlatform;
+        const platform = tab.dataset.platform as SocialPlatform;
         if (!platform) return;
         
         currentSharePlatform = platform;
@@ -1507,6 +1585,17 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Show/hide reel controls based on platform
         shareReelControls.style.display = (platform === 'instagram' || platform === 'facebook') ? 'block' : 'none';
+        
+        // Update post button state and text
+        if (currentUser) {
+            const isConnected = currentUser.connectedAccounts[platform];
+            postToSocialBtn.disabled = !isConnected;
+            const platformName = platform.charAt(0).toUpperCase() + platform.slice(1);
+            postToSocialBtn.textContent = isConnected ? `Post to ${platformName}` : 'Save to Gallery';
+            postToSocialBtn.dataset.tooltip = isConnected 
+                ? `Post this design directly to ${platformName}.` 
+                : `Connect your ${platformName} account in your profile to post directly.`;
+        }
         
         // Generate a new caption for the selected platform
         generateSocialCaption();
@@ -1592,9 +1681,12 @@ document.addEventListener('DOMContentLoaded', () => {
         ];
         let messageIndex = 0;
 
-        // Show loader
+        // Reset UI and show loader
         shareVideoContainer.style.display = 'flex';
         shareVideoLoader.style.display = 'flex';
+        shareVideoLoader.classList.remove('error');
+        shareVideoPreview.style.display = 'none';
+        shareVideoDownloadBtn.style.display = 'none';
         createReelBtn.disabled = true;
         
         const updateLoadingText = () => {
@@ -1626,7 +1718,10 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!downloadLink) throw new Error("Video generation succeeded but no download link was returned.");
             
             const videoResponse = await fetch(`${downloadLink}&key=${process.env.API_KEY}`);
-            if (!videoResponse.ok) throw new Error(`Failed to fetch video: ${videoResponse.statusText}`);
+            if (!videoResponse.ok) {
+                 const errorBody = await videoResponse.text();
+                 throw new Error(`Failed to fetch video (status: ${videoResponse.status}): ${errorBody}`);
+            }
 
             const videoBlob = await videoResponse.blob();
             generatedReelUrl = URL.createObjectURL(videoBlob);
@@ -1639,10 +1734,16 @@ document.addEventListener('DOMContentLoaded', () => {
             shareVideoPreview.style.display = 'block';
             shareVideoDownloadBtn.style.display = 'block';
 
-        } catch (error) {
+        } catch (error: any) {
             console.error("Error generating reel:", error);
-            showNotification("Failed to create the video reel. Please try again later.", "error");
-            shareVideoLoadingText.textContent = "Video Generation Failed";
+            shareVideoLoader.classList.add('error');
+            
+            const errorMessage = error.toString();
+            if (errorMessage.includes('429') || errorMessage.toLowerCase().includes('resource_exhausted') || errorMessage.toLowerCase().includes('quota')) {
+                shareVideoLoadingText.textContent = "Video Generation Limit Reached. Please check your plan and billing details.";
+            } else {
+                shareVideoLoadingText.textContent = "Video Generation Failed. Please try again.";
+            }
         } finally {
             clearInterval(videoLoadingInterval);
             createReelBtn.disabled = false;
@@ -1650,15 +1751,23 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     /**
-     * Saves the created social post to local storage.
+     * Saves the created social post to local storage or simulates posting.
      */
-    function handleSavePost() {
+    function handlePostAction() {
         if (!currentUser || !currentShareDesign || !currentShareImageUrl) return;
 
         const caption = shareCaptionInput.value.trim();
         if (!caption) {
-            showNotification("Please generate or write a caption before posting.", "error");
+            showNotification("Please generate or write a caption before saving or posting.", "error");
             return;
+        }
+        
+        const isConnected = currentUser.connectedAccounts[currentSharePlatform];
+        
+        // If connected, simulate the post. Otherwise, just save.
+        if (isConnected) {
+            // In a real app, this is where you'd make an API call to the social platform.
+            showNotification(`Successfully posted to ${currentSharePlatform}! (Simulation)`, "success");
         }
 
         const newPost: SocialPost = {
@@ -1669,6 +1778,7 @@ document.addEventListener('DOMContentLoaded', () => {
             videoUrl: generatedReelUrl || undefined,
             timestamp: Date.now(),
             designName: currentShareDesign.name,
+            posted: isConnected,
         };
         
         const userPostsKey = `gemvision_posts_${currentUser.email}`;
@@ -1676,7 +1786,7 @@ document.addEventListener('DOMContentLoaded', () => {
         myPosts.unshift(newPost);
         localStorage.setItem(userPostsKey, JSON.stringify(myPosts));
 
-        showNotification(`Post for ${currentSharePlatform} was saved to 'My Social Posts'!`, "success");
+        showNotification(`Post for ${currentSharePlatform} saved to 'My Social Posts'!`, "success");
         renderMySocialPosts();
         closeShareModal();
     }
@@ -1728,8 +1838,10 @@ document.addEventListener('DOMContentLoaded', () => {
             const mediaElement = post.videoUrl 
                 ? `<video src="${post.videoUrl}" muted loop playsinline></video>` 
                 : `<img src="${post.designImage}" alt="${post.designName}" loading="lazy">`;
+            const postedBadge = post.posted ? '<div class="posted-badge">Posted</div>' : '';
 
             card.innerHTML = `
+                ${postedBadge}
                 <div class="media-preview">${mediaElement}</div>
                 <div class="social-post-content">
                     <div class="social-post-header">
@@ -1903,7 +2015,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
     showLoginViewLink.addEventListener('click', (e) => {
         e.preventDefault();
-        openAuthModal('login');
+        openAuthModal('register');
     });
     
     // Registration Step 1: Email submission
@@ -1948,10 +2060,21 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const users = JSON.parse(localStorage.getItem('gemvision_users') || '{}');
         const hashedPassword = await hashPassword(password);
-        users[registrationEmail] = { password: hashedPassword, attemptsLeft: 3, plan: 'free' };
+        const initialConnectedAccounts = { x: false, facebook: false, instagram: false, linkedin: false };
+        users[registrationEmail] = { 
+            password: hashedPassword, 
+            attemptsLeft: 3, 
+            plan: 'free',
+            connectedAccounts: initialConnectedAccounts
+        };
         localStorage.setItem('gemvision_users', JSON.stringify(users));
 
-        currentUser = { email: registrationEmail, attemptsLeft: 3, plan: 'free' };
+        currentUser = { 
+            email: registrationEmail, 
+            attemptsLeft: 3, 
+            plan: 'free',
+            connectedAccounts: initialConnectedAccounts
+        };
         saveCurrentUserState();
         updateAuthStateUI();
         renderMyCreationsGallery();
@@ -1967,11 +2090,33 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Special Admin Login
         if (email === ADMIN_EMAIL && password === 'admin123') {
-            currentUser = { email: ADMIN_EMAIL, attemptsLeft: 999, plan: 'admin' }; // Admin has many attempts
+            currentUser = { 
+                email: ADMIN_EMAIL, 
+                attemptsLeft: 999, 
+                plan: 'admin',
+                connectedAccounts: { x: true, facebook: true, instagram: true, linkedin: true }
+             };
             saveCurrentUserState();
             updateAuthStateUI();
             closeAuthModal();
             showNotification('Welcome, Administrator!', 'success');
+            renderMyCreationsGallery();
+            renderMySocialPosts();
+            return;
+        }
+        
+        // Special Tester Login
+        if (email === 'tester@gemvision.ai' && password === 'tester123') {
+            currentUser = {
+                email: 'tester@gemvision.ai',
+                attemptsLeft: 9999, // Unlimited attempts for testing
+                plan: 'free', // Keep on free plan to test related UI, but with no limits
+                connectedAccounts: { x: false, facebook: false, instagram: false, linkedin: false }
+            };
+            saveCurrentUserState();
+            updateAuthStateUI();
+            closeAuthModal();
+            showNotification('Welcome, Tester! You have unlimited attempts.', 'success');
             renderMyCreationsGallery();
             renderMySocialPosts();
             return;
@@ -1986,7 +2131,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 email: email, 
                 attemptsLeft: userData.attemptsLeft, 
                 plan: userData.plan || 'free',
-                profilePicture: userData.profilePicture 
+                profilePicture: userData.profilePicture,
+                connectedAccounts: userData.connectedAccounts || { x: false, facebook: false, instagram: false, linkedin: false }
             };
              saveCurrentUserState();
              updateAuthStateUI();
@@ -2002,8 +2148,15 @@ document.addEventListener('DOMContentLoaded', () => {
     // Profile Modal Listeners
     profileCloseBtn.addEventListener('click', closeProfileModal);
     profileModal.addEventListener('click', (e) => {
-        if (e.target === profileModal) {
+        const target = e.target as HTMLElement;
+        if (target === profileModal) {
             closeProfileModal();
+        }
+        if (target.classList.contains('connect-account-btn') || target.classList.contains('disconnect-account-btn')) {
+            const platform = target.dataset.platform as SocialPlatform;
+            if (platform) {
+                handleAccountConnectionToggle(platform);
+            }
         }
     });
     profileLogoutBtn.addEventListener('click', handleLogout);
@@ -2105,7 +2258,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
     regenerateCaptionBtn.addEventListener('click', generateSocialCaption);
     createReelBtn.addEventListener('click', handleReelGeneration);
-    postToSocialBtn.addEventListener('click', handleSavePost);
+    postToSocialBtn.addEventListener('click', handlePostAction);
 
 
 
