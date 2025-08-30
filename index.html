@@ -34,6 +34,9 @@
             <nav>
                 <a href="#showcase-gallery">Gallery</a>
                 <a href="#pricing-section">Pricing</a>
+                <div id="nav-user-profile" style="display: none;">
+                    <img id="nav-profile-picture" src="#" alt="Profile Picture">
+                </div>
                 <a href="#" id="nav-action-btn" class="login-btn">Login / Register</a>
             </nav>
         </header>
@@ -164,6 +167,13 @@
                 </div>
             </section>
 
+            <section id="my-posts-section" class="my-posts-section" style="display: none;">
+                <h2>My Social Posts</h2>
+                <div id="my-posts-grid" class="social-posts-grid">
+                    <!-- User's saved social posts will be dynamically inserted here -->
+                </div>
+            </section>
+
             <section id="pricing-section" class="pricing-section">
                 <h2>Find a Plan That's Right For You</h2>
                 <div class="pricing-header">
@@ -197,7 +207,11 @@
                             <li>✔️ Full access to all jewelry styles</li>
                             <li>✔️ No watermarks</li>
                         </ul>
-                        <button class="pricing-button" data-plan="pro" data-plan-name="Pro Plan" data-price-usd-cents="700" data-price-inr-cents="59900">Choose Pro</button>
+                        <!-- 
+                            IMPORTANT: Replace these example Price IDs with your actual IDs from the Stripe Dashboard.
+                            Each ID corresponds to a specific price (e.g., $7/month, ₹599/month).
+                        -->
+                        <button class="pricing-button" data-plan="pro" data-plan-name="Pro Plan" data-price-id-usd="price_1PFlqQJq9c3A5g6b7c8d9e0f" data-price-id-inr="price_1PFlqQJq9c3A5g6b1a2b3c4d">Choose Pro</button>
                     </div>
                     <div class="pricing-tier">
                         <h3>Elite</h3>
@@ -210,7 +224,11 @@
                             <li>✔️ Priority customer support</li>
                             <li>✔️ Early access to new features</li>
                         </ul>
-                        <button class="pricing-button" data-plan="elite" data-plan-name="Elite Plan" data-price-usd-cents="1400" data-price-inr-cents="119900">Go Elite</button>
+                        <!-- 
+                            IMPORTANT: Replace these example Price IDs with your actual IDs from the Stripe Dashboard.
+                            Each ID corresponds to a specific price (e.g., $14/month, ₹1199/month).
+                        -->
+                        <button class="pricing-button" data-plan="elite" data-plan-name="Elite Plan" data-price-id-usd="price_1PFlrRJq9c3A5g6b5e6f7g8h" data-price-id-inr="price_1PFlrRJq9c3A5g6b9i0j1k2l">Go Elite</button>
                     </div>
                 </div>
             </section>
@@ -220,6 +238,14 @@
         <footer>
             <p>&copy; 2024 GemVision AI. Designs are for illustrative purposes.</p>
         </footer>
+
+        <!-- Default Avatar SVG -->
+        <svg style="position: absolute; width: 0; height: 0;" aria-hidden="true">
+            <symbol id="default-avatar" viewBox="0 0 100 100">
+                <circle cx="50" cy="50" r="50" fill="#3c4a5c"/>
+                <path d="M50 62.5c-10.4 0-19.5 5.5-25 13.5C30.5 83 39.9 87.5 50 87.5s19.5-4.5 25-11.5c-5.5-8-14.6-13.5-25-13.5zM50 25c-8.3 0-15 6.7-15 15s6.7 15 15 15 15-6.7 15-15-6.7-15-15-15z" fill="#1E2A3A"/>
+            </symbol>
+        </svg>
 
         <!-- Modals Container -->
 
@@ -288,6 +314,9 @@
                 <button id="profile-close-btn" class="close-btn">&times;</button>
                 <h2>My Profile</h2>
                 <div id="profile-view">
+                    <div class="profile-picture-container">
+                        <img id="profile-picture-display" src="#" alt="Profile Picture">
+                    </div>
                     <div class="profile-info-group">
                         <label>Email</label>
                         <p id="profile-email"></p>
@@ -304,6 +333,11 @@
                 </div>
                 <div id="profile-edit-view" style="display: none;">
                     <form id="profile-edit-form">
+                         <div class="profile-picture-edit-container">
+                            <img id="profile-edit-preview" src="#" alt="Profile preview">
+                            <label for="profile-picture-upload" class="secondary-button">Change Picture</label>
+                            <input type="file" id="profile-picture-upload" accept="image/jpeg,image/png,image/webp" style="display: none;">
+                        </div>
                         <div class="input-group">
                             <label for="profile-edit-email">Email</label>
                             <input type="email" id="profile-edit-email" required>
@@ -357,6 +391,46 @@
                 <button id="confirm-crypto-payment-btn" class="generate-button">I've Sent the Payment</button>
             </div>
         </div>
+
+        <!-- Share Modal -->
+        <div id="share-modal" class="modal-container" style="display: none;">
+            <div class="modal-content share-modal-content">
+                <button id="share-close-btn" class="close-btn">&times;</button>
+                <h2>Share Your Creation</h2>
+                <div class="share-modal-layout">
+                    <div class="share-preview-container">
+                        <img id="share-preview-image" src="" alt="Design Preview">
+                        <div id="share-video-container" class="share-video-container" style="display: none;">
+                            <div id="share-video-loader" class="share-video-loader" style="display: none;">
+                                <div class="loader"></div>
+                                <p id="share-video-loading-text">Animating your masterpiece...</p>
+                            </div>
+                            <video id="share-video-preview" controls></video>
+                            <a id="share-video-download-btn" class="generate-button" style="display: none;" download="gemvision-reel.mp4">Download Reel</a>
+                        </div>
+                    </div>
+                    <div class="share-controls-container">
+                        <div class="share-tabs">
+                            <button class="share-tab active" data-platform="x">X</button>
+                            <button class="share-tab" data-platform="facebook">Facebook</button>
+                            <button class="share-tab" data-platform="instagram">Instagram</button>
+                            <button class="share-tab" data-platform="linkedin">LinkedIn</button>
+                        </div>
+                        <div id="share-caption-group" class="input-group">
+                            <label for="share-caption">AI-Generated Caption</label>
+                            <textarea id="share-caption" rows="8" placeholder="Generating caption..."></textarea>
+                            <button id="regenerate-caption-btn" class="secondary-button">Regenerate Caption</button>
+                        </div>
+                        <div id="share-reel-controls" style="display: none;">
+                            <p>Make your post stand out with a short, cinematic video!</p>
+                            <button id="create-reel-btn" class="generate-button">✨ Create Reel</button>
+                        </div>
+                        <button id="post-to-social-btn" class="generate-button">Post to Social (Save)</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
 
         <div id="loading-overlay" class="loading-overlay" style="display: none;">
             <div class="loader"></div>

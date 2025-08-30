@@ -36,6 +36,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const gateSignupBtn = document.getElementById('gate-signup-btn') as HTMLButtonElement;
     const attemptsCounter = document.getElementById('attempts-counter') as HTMLParagraphElement;
     const navActionBtn = document.getElementById('nav-action-btn') as HTMLAnchorElement;
+    const navUserProfile = document.getElementById('nav-user-profile') as HTMLDivElement;
+    const navProfilePicture = document.getElementById('nav-profile-picture') as HTMLImageElement;
     const analysisResultsContainer = document.getElementById('analysis-results-container') as HTMLDivElement;
     const analysisContent = document.getElementById('analysis-content') as HTMLDivElement;
     const analysisSources = document.getElementById('analysis-sources') as HTMLDivElement;
@@ -84,12 +86,15 @@ document.addEventListener('DOMContentLoaded', () => {
     const profileModal = document.getElementById('profile-modal') as HTMLDivElement;
     const profileCloseBtn = document.getElementById('profile-close-btn') as HTMLButtonElement;
     const profileView = document.getElementById('profile-view') as HTMLDivElement;
+    const profilePictureDisplay = document.getElementById('profile-picture-display') as HTMLImageElement;
     const profileEditView = document.getElementById('profile-edit-view') as HTMLDivElement;
     const profileEmail = document.getElementById('profile-email') as HTMLParagraphElement;
     const profilePlan = document.getElementById('profile-plan') as HTMLParagraphElement;
     const profileAttempts = document.getElementById('profile-attempts') as HTMLParagraphElement;
     const editProfileBtn = document.getElementById('edit-profile-btn') as HTMLButtonElement;
     const profileEditForm = document.getElementById('profile-edit-form') as HTMLFormElement;
+    const profilePictureUpload = document.getElementById('profile-picture-upload') as HTMLInputElement;
+    const profileEditPreview = document.getElementById('profile-edit-preview') as HTMLImageElement;
     const profileEditEmailInput = document.getElementById('profile-edit-email') as HTMLInputElement;
     const profileLogoutBtn = document.getElementById('profile-logout-btn') as HTMLButtonElement;
 
@@ -102,6 +107,8 @@ document.addEventListener('DOMContentLoaded', () => {
     // My Creations Elements
     const myCreationsSection = document.getElementById('my-creations-section') as HTMLElement;
     const myCreationsGrid = document.getElementById('my-creations-grid') as HTMLDivElement;
+    const myPostsSection = document.getElementById('my-posts-section') as HTMLElement;
+    const myPostsGrid = document.getElementById('my-posts-grid') as HTMLDivElement;
 
     // Pricing & Payment Elements
     const currencySwitcher = document.getElementById('currency-switcher') as HTMLDivElement;
@@ -125,6 +132,22 @@ document.addEventListener('DOMContentLoaded', () => {
     const copyAddressBtn = document.getElementById('copy-address-btn') as HTMLButtonElement;
     const confirmCryptoPaymentBtn = document.getElementById('confirm-crypto-payment-btn') as HTMLButtonElement;
 
+    // Share Modal Elements
+    const shareModal = document.getElementById('share-modal') as HTMLDivElement;
+    const shareCloseBtn = document.getElementById('share-close-btn') as HTMLButtonElement;
+    const sharePreviewImage = document.getElementById('share-preview-image') as HTMLImageElement;
+    const shareTabsContainer = shareModal.querySelector('.share-tabs') as HTMLDivElement;
+    const shareCaptionInput = document.getElementById('share-caption') as HTMLTextAreaElement;
+    const regenerateCaptionBtn = document.getElementById('regenerate-caption-btn') as HTMLButtonElement;
+    const shareReelControls = document.getElementById('share-reel-controls') as HTMLDivElement;
+    const createReelBtn = document.getElementById('create-reel-btn') as HTMLButtonElement;
+    const postToSocialBtn = document.getElementById('post-to-social-btn') as HTMLButtonElement;
+    const shareVideoContainer = document.getElementById('share-video-container') as HTMLDivElement;
+    const shareVideoLoader = document.getElementById('share-video-loader') as HTMLDivElement;
+    const shareVideoLoadingText = document.getElementById('share-video-loading-text') as HTMLParagraphElement;
+    const shareVideoPreview = document.getElementById('share-video-preview') as HTMLVideoElement;
+    const shareVideoDownloadBtn = document.getElementById('share-video-download-btn') as HTMLAnchorElement;
+
 
     // --- State Management ---
     let uploadedFile: {
@@ -143,7 +166,12 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // Auth State
     type UserPlan = 'free' | 'pro' | 'elite' | 'admin';
-    let currentUser: { email: string; attemptsLeft: number; plan: UserPlan } | null = null;
+    let currentUser: { 
+        email: string; 
+        attemptsLeft: number; 
+        plan: UserPlan;
+        profilePicture?: string;
+    } | null = null;
     let registrationEmail: string | null = null; // Used for multi-step registration
     const ADMIN_EMAIL = 'admin@gemvision.ai';
 
@@ -153,9 +181,15 @@ document.addEventListener('DOMContentLoaded', () => {
     let selectedPlanForPayment: {
         plan: UserPlan;
         planName: string;
-        priceUsdCents: number;
-        priceInrCents: number;
+        priceIdUsd: string;
+        priceIdInr: string;
     } | null = null;
+
+    // Share State
+    let currentShareDesign: Design | null = null;
+    let currentShareImageUrl: string | null = null;
+    let currentSharePlatform: 'x' | 'facebook' | 'instagram' | 'linkedin' = 'x';
+    let generatedReelUrl: string | null = null;
 
 
     // --- Gemini API Initialization ---
@@ -179,6 +213,16 @@ document.addEventListener('DOMContentLoaded', () => {
         metals?: string[];
         blueprint?: string;
         imagePrompt?: string;
+    }
+
+    interface SocialPost {
+        id: string;
+        platform: string;
+        caption: string;
+        designImage: string;
+        videoUrl?: string;
+        timestamp: number;
+        designName: string;
     }
     
     // --- Functions ---
@@ -471,7 +515,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     <li><strong>Details:</strong> ${design.blueprint}</li>
                 </ul>
                  <div class="card-actions">
-                    <button class="save-design-btn">Save to My Creations</button>
+                    <button class="save-design-btn">Save</button>
+                    <button class="share-design-btn">Share</button>
                 </div>
             </div>
         `;
@@ -941,6 +986,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function openProfileModal() {
         if (!currentUser) return;
+        
+        const avatarSrc = currentUser.profilePicture || `data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><use href='%23default-avatar'></use></svg>`;
+        profilePictureDisplay.src = avatarSrc;
+        profileEditPreview.src = avatarSrc;
+
         // Populate profile data
         profileEmail.textContent = currentUser.email;
         profilePlan.textContent = currentUser.plan;
@@ -961,8 +1011,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function updateAuthStateUI() {
         const isAdmin = currentUser && currentUser.email === ADMIN_EMAIL;
+        const defaultAvatar = `data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><use href='%23default-avatar'></use></svg>`;
+
         if (currentUser) {
             navActionBtn.textContent = 'My Profile';
+            navUserProfile.style.display = 'block';
+            navProfilePicture.src = currentUser.profilePicture || defaultAvatar;
+
             generatorGate.classList.add('hidden');
             if (currentUser.plan === 'free') {
                  attemptsCounter.textContent = `You have ${currentUser.attemptsLeft} free attempts remaining.`;
@@ -973,6 +1028,7 @@ document.addEventListener('DOMContentLoaded', () => {
             adminPanel.style.display = isAdmin ? 'block' : 'none';
         } else {
             navActionBtn.textContent = 'Login / Register';
+            navUserProfile.style.display = 'none';
             generatorGate.classList.remove('hidden');
             attemptsCounter.style.display = 'none';
             adminPanel.style.display = 'none';
@@ -987,12 +1043,80 @@ document.addEventListener('DOMContentLoaded', () => {
             const users = JSON.parse(localStorage.getItem('gemvision_users') || '{}');
             const userData = users[currentUser.email];
             if (userData) {
-                users[currentUser.email] = {...userData, attemptsLeft: currentUser.attemptsLeft, plan: currentUser.plan};
+                users[currentUser.email] = {
+                    ...userData, 
+                    attemptsLeft: currentUser.attemptsLeft, 
+                    plan: currentUser.plan,
+                    profilePicture: currentUser.profilePicture
+                };
                 localStorage.setItem('gemvision_users', JSON.stringify(users));
             }
         } else {
             localStorage.removeItem('gemvision_currentUser');
         }
+    }
+    
+    /**
+     * Resizes an image from a base64 string.
+     * @param base64Str The base64 string of the image.
+     * @param maxWidth The maximum width of the resized image.
+     * @param maxHeight The maximum height of the resized image.
+     * @returns A promise that resolves to the resized image as a base64 string.
+     */
+    function resizeImage(base64Str: string, maxWidth = 256, maxHeight = 256): Promise<string> {
+        return new Promise((resolve) => {
+            const img = new Image();
+            img.src = base64Str;
+            img.onload = () => {
+                const canvas = document.createElement('canvas');
+                let width = img.width;
+                let height = img.height;
+
+                if (width > height) {
+                    if (width > maxWidth) {
+                        height *= maxWidth / width;
+                        width = maxWidth;
+                    }
+                } else {
+                    if (height > maxHeight) {
+                        width *= maxHeight / height;
+                        height = maxHeight;
+                    }
+                }
+                canvas.width = width;
+                canvas.height = height;
+                const ctx = canvas.getContext('2d');
+                if (!ctx) return;
+                ctx.drawImage(img, 0, 0, width, height);
+                resolve(canvas.toDataURL('image/jpeg', 0.9)); // Use JPEG for better compression
+            };
+        });
+    }
+
+    async function handleProfilePictureUpload(file: File) {
+        if (!currentUser) return;
+    
+        const reader = new FileReader();
+        reader.onloadend = async () => {
+            try {
+                const originalBase64 = reader.result as string;
+                const resizedBase64 = await resizeImage(originalBase64);
+    
+                // Update UI immediately
+                profileEditPreview.src = resizedBase64;
+                profilePictureDisplay.src = resizedBase64;
+                navProfilePicture.src = resizedBase64;
+    
+                // Update state and save
+                currentUser.profilePicture = resizedBase64;
+                saveCurrentUserState();
+                showNotification("Profile picture updated!", "success");
+            } catch (error) {
+                console.error("Error resizing image:", error);
+                showNotification("Could not process the image. Please try another one.", "error");
+            }
+        };
+        reader.readAsDataURL(file);
     }
     
     function handleLogout() {
@@ -1003,6 +1127,8 @@ document.addEventListener('DOMContentLoaded', () => {
         // Clear and hide the user's creations gallery
         myCreationsGrid.innerHTML = '';
         myCreationsSection.style.display = 'none';
+        myPostsGrid.innerHTML = '';
+        myPostsSection.style.display = 'none';
         showNotification("You have been logged out.", "success");
     }
     
@@ -1185,31 +1311,21 @@ document.addEventListener('DOMContentLoaded', () => {
     
     /**
      * Reads, validates, and stores plan info to begin the payment process.
-     * This function is now more robust to prevent invalid data from entering the flow.
      */
     function openPaymentMethodModal(button: HTMLButtonElement) {
         const plan = button.getAttribute('data-plan') as UserPlan;
         const planName = button.getAttribute('data-plan-name');
-        const priceUsdCentsAttr = button.getAttribute('data-price-usd-cents');
-        const priceInrCentsAttr = button.getAttribute('data-price-inr-cents');
+        const priceIdUsd = button.getAttribute('data-price-id-usd');
+        const priceIdInr = button.getAttribute('data-price-id-inr');
 
         // Stricter initial validation
-        if (!plan || !planName || !priceUsdCentsAttr || !priceInrCentsAttr) {
-            console.error("Missing plan data on button:", { plan, planName, priceUsdCentsAttr, priceInrCentsAttr });
+        if (!plan || !planName || !priceIdUsd || !priceIdInr) {
+            console.error("Missing plan data on button:", { plan, planName, priceIdUsd, priceIdInr });
             showNotification("Cannot initiate payment: critical plan information is missing from the button.", "error");
             return;
         }
 
-        const priceUsdCents = parseInt(priceUsdCentsAttr, 10);
-        const priceInrCents = parseInt(priceInrCentsAttr, 10);
-
-        if (isNaN(priceUsdCents) || isNaN(priceInrCents) || priceUsdCents <= 0 || priceInrCents <= 0) {
-             console.error("Invalid price data on button:", { priceUsdCentsAttr, priceInrCentsAttr });
-            showNotification("Cannot initiate payment: price information is invalid.", "error");
-            return;
-        }
-
-        selectedPlanForPayment = { plan, planName, priceUsdCents, priceInrCents };
+        selectedPlanForPayment = { plan, planName, priceIdUsd, priceIdInr };
         paymentMethodTitle.textContent = `Upgrade to ${planName}`;
         paymentMethodModal.style.display = 'flex';
     }
@@ -1252,8 +1368,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     /**
-     * Redirects to Stripe checkout using pre-validated plan information.
-     * This function now includes a final sanity check.
+     * Redirects to Stripe checkout using a pre-defined Price ID.
      */
     async function redirectToCheckout() {
         if (!stripe || !currentUser || !selectedPlanForPayment) {
@@ -1261,9 +1376,8 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
-        const { planName, priceUsdCents, priceInrCents } = selectedPlanForPayment;
-        
-        // Final, ultra-robust validation block.
+        const { priceIdUsd, priceIdInr } = selectedPlanForPayment;
+
         // Step 1: Validate currency
         if (currentCurrency !== 'usd' && currentCurrency !== 'inr') {
             console.error('Invalid currency detected:', currentCurrency);
@@ -1271,18 +1385,13 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
-        // Step 2: Select the correct price based on the validated currency
-        const priceCents = currentCurrency === 'usd' ? priceUsdCents : priceInrCents;
+        // Step 2: Select the correct price ID based on the validated currency
+        const priceId = currentCurrency === 'usd' ? priceIdUsd : priceIdInr;
 
         // Step 3: Final validation of all data being sent to Stripe
-        if (!planName || typeof planName !== 'string' || planName.trim() === '') {
-            console.error('Invalid plan name for Stripe:', planName);
-            showNotification('Plan name is missing or invalid.', 'error');
-            return;
-        }
-        if (!Number.isInteger(priceCents) || priceCents <= 0) {
-            console.error('Invalid price for Stripe:', { priceCents, currency: currentCurrency });
-            showNotification('Price is invalid. Please select your plan again.', 'error');
+        if (!priceId || typeof priceId !== 'string' || priceId.trim() === '' || priceId.includes('YOUR_')) {
+            console.error('Invalid or placeholder Price ID for Stripe:', priceId);
+            showNotification('This payment plan is not configured correctly. Please contact support.', 'error');
             return;
         }
         if (!currentUser.email) {
@@ -1296,16 +1405,7 @@ document.addEventListener('DOMContentLoaded', () => {
         try {
             const checkoutObject = {
                 lineItems: [{
-                    price_data: {
-                        currency: currentCurrency,
-                        product_data: {
-                            name: planName,
-                        },
-                        unit_amount: priceCents,
-                        recurring: {
-                            interval: 'month',
-                        },
-                    },
+                    price: priceId, // Use the Price ID here
                     quantity: 1,
                 }],
                 mode: 'subscription',
@@ -1351,6 +1451,296 @@ document.addEventListener('DOMContentLoaded', () => {
         saveCurrentUserState();
         updateAuthStateUI();
         showNotification(`Successfully upgraded to the ${plan} plan!`, 'success');
+    }
+
+    // --- Social Sharing Functions ---
+
+    /**
+     * Opens the share modal and populates it with design data.
+     * @param button The share button that was clicked.
+     */
+    function openShareModal(button: HTMLElement) {
+        const card = button.closest('.design-card') as HTMLElement;
+        if (!card || !card.dataset.design || !card.dataset.imageUrl) {
+            showNotification("Could not open share modal. Design data missing.", "error");
+            return;
+        }
+
+        currentShareDesign = JSON.parse(card.dataset.design);
+        currentShareImageUrl = card.dataset.imageUrl;
+
+        // Reset modal state
+        sharePreviewImage.src = currentShareImageUrl;
+        shareVideoContainer.style.display = 'none';
+        shareVideoLoader.style.display = 'none';
+        shareVideoPreview.style.display = 'none';
+        shareVideoPreview.src = '';
+        shareVideoDownloadBtn.style.display = 'none';
+        shareVideoDownloadBtn.href = '';
+        generatedReelUrl = null;
+
+        // Set initial tab and generate caption
+        switchShareTab(shareTabsContainer.querySelector('.share-tab[data-platform="x"]') as HTMLButtonElement);
+        
+        shareModal.style.display = 'flex';
+    }
+
+    function closeShareModal() {
+        shareModal.style.display = 'none';
+        currentShareDesign = null;
+        currentShareImageUrl = null;
+    }
+
+    /**
+     * Handles switching between social media tabs in the share modal.
+     * @param tab The tab button that was clicked.
+     */
+    function switchShareTab(tab: HTMLButtonElement) {
+        const platform = tab.dataset.platform as typeof currentSharePlatform;
+        if (!platform) return;
+        
+        currentSharePlatform = platform;
+
+        // Update active tab style
+        shareTabsContainer.querySelector('.active')?.classList.remove('active');
+        tab.classList.add('active');
+
+        // Show/hide reel controls based on platform
+        shareReelControls.style.display = (platform === 'instagram' || platform === 'facebook') ? 'block' : 'none';
+        
+        // Generate a new caption for the selected platform
+        generateSocialCaption();
+    }
+    
+    /**
+     * Generates a detailed, platform-specific prompt for the AI.
+     * @param platform The target social media platform.
+     * @param design The design object.
+     * @returns A string containing the full prompt for the AI.
+     */
+    function getPlatformSpecificPrompt(platform: string, design: Design): string {
+        let platformInstructions = '';
+        switch(platform) {
+            case 'x':
+                platformInstructions = 'Keep it concise and punchy (under 280 characters). Use emojis sparingly. End with a question to drive engagement.';
+                break;
+            case 'facebook':
+                platformInstructions = 'Write a slightly longer, more descriptive post. Tell a short story about the inspiration behind the design. Use a friendly and inviting tone.';
+                break;
+            case 'instagram':
+                platformInstructions = 'Focus heavily on the visual appeal. Use descriptive adjectives and relevant emojis. The caption can be longer and more story-driven. Place the hashtags at the very end.';
+                break;
+            case 'linkedin':
+                platformInstructions = 'Adopt a professional and sophisticated tone. Focus on the craftsmanship, the quality of the materials, and the value proposition. Frame it as a piece of art or a valuable investment.';
+                break;
+            default:
+                platformInstructions = 'Write a captivating post.';
+        }
+
+        return `You are a social media marketing expert for a luxury jewelry brand. 
+        Write a post for ${platform} about the following jewelry design:
+        - Name: ${design.name}
+        - Description: ${design.description}
+        - Metals: ${design.metals.join(', ')}
+        
+        **Platform-specific Instructions:** ${platformInstructions}
+        
+        Include 3-5 relevant and popular hashtags.`;
+    }
+
+    /**
+     * Generates a social media caption tailored to the current platform and design.
+     */
+    async function generateSocialCaption() {
+        if (!currentShareDesign) return;
+
+        shareCaptionInput.value = '';
+        shareCaptionInput.placeholder = `Generating a great caption for ${currentSharePlatform}...`;
+        regenerateCaptionBtn.disabled = true;
+
+        try {
+            const prompt = getPlatformSpecificPrompt(currentSharePlatform, currentShareDesign);
+            
+            const response = await ai.models.generateContent({
+                model: "gemini-2.5-flash",
+                contents: prompt,
+            });
+
+            shareCaptionInput.value = response.text.trim();
+
+        } catch (error) {
+            console.error("Error generating social caption:", error);
+            shareCaptionInput.value = "Couldn't generate a caption. Please write your own or try again.";
+        } finally {
+            shareCaptionInput.placeholder = "Describe your post...";
+            regenerateCaptionBtn.disabled = false;
+        }
+    }
+
+    /**
+     * Handles the creation of a cinematic reel for the design.
+     */
+    async function handleReelGeneration() {
+        if (!currentShareDesign || !uploadedFile) return;
+
+        const videoLoadingMessages = [
+            "Animating your masterpiece...",
+            "Rendering the sparkle...",
+            "Adding cinematic flair...",
+            "Finalizing the high-definition cut...",
+            "This can take a few minutes..."
+        ];
+        let messageIndex = 0;
+
+        // Show loader
+        shareVideoContainer.style.display = 'flex';
+        shareVideoLoader.style.display = 'flex';
+        createReelBtn.disabled = true;
+        
+        const updateLoadingText = () => {
+            shareVideoLoadingText.textContent = videoLoadingMessages[messageIndex];
+            messageIndex = (messageIndex + 1) % videoLoadingMessages.length;
+        };
+        updateLoadingText();
+        const videoLoadingInterval = setInterval(updateLoadingText, 3000);
+
+        try {
+            const prompt = `A cinematic, slow-motion 5-second video of this piece of jewelry: ${currentShareDesign.imagePrompt}. The lighting should be dramatic, highlighting the sparkle of the gemstone and the texture of the metal. Show it rotating slowly against a dark, elegant background.`;
+            
+            let operation = await ai.models.generateVideos({
+                model: 'veo-2.0-generate-001',
+                prompt: prompt,
+                image: {
+                    imageBytes: uploadedFile.base64,
+                    mimeType: uploadedFile.mimeType,
+                },
+                config: { numberOfVideos: 1 }
+            });
+
+            while (!operation.done) {
+                await new Promise(resolve => setTimeout(resolve, 10000)); // Poll every 10 seconds
+                operation = await ai.operations.getVideosOperation({ operation: operation });
+            }
+            
+            const downloadLink = operation.response?.generatedVideos?.[0]?.video?.uri;
+            if (!downloadLink) throw new Error("Video generation succeeded but no download link was returned.");
+            
+            const videoResponse = await fetch(`${downloadLink}&key=${process.env.API_KEY}`);
+            if (!videoResponse.ok) throw new Error(`Failed to fetch video: ${videoResponse.statusText}`);
+
+            const videoBlob = await videoResponse.blob();
+            generatedReelUrl = URL.createObjectURL(videoBlob);
+            
+            shareVideoPreview.src = generatedReelUrl;
+            shareVideoDownloadBtn.href = generatedReelUrl;
+
+            // Show video, hide loader
+            shareVideoLoader.style.display = 'none';
+            shareVideoPreview.style.display = 'block';
+            shareVideoDownloadBtn.style.display = 'block';
+
+        } catch (error) {
+            console.error("Error generating reel:", error);
+            showNotification("Failed to create the video reel. Please try again later.", "error");
+            shareVideoLoadingText.textContent = "Video Generation Failed";
+        } finally {
+            clearInterval(videoLoadingInterval);
+            createReelBtn.disabled = false;
+        }
+    }
+
+    /**
+     * Saves the created social post to local storage.
+     */
+    function handleSavePost() {
+        if (!currentUser || !currentShareDesign || !currentShareImageUrl) return;
+
+        const caption = shareCaptionInput.value.trim();
+        if (!caption) {
+            showNotification("Please generate or write a caption before posting.", "error");
+            return;
+        }
+
+        const newPost: SocialPost = {
+            id: `post-${Date.now()}`,
+            platform: currentSharePlatform,
+            caption: caption,
+            designImage: currentShareImageUrl,
+            videoUrl: generatedReelUrl || undefined,
+            timestamp: Date.now(),
+            designName: currentShareDesign.name,
+        };
+        
+        const userPostsKey = `gemvision_posts_${currentUser.email}`;
+        let myPosts: SocialPost[] = JSON.parse(localStorage.getItem(userPostsKey) || '[]');
+        myPosts.unshift(newPost);
+        localStorage.setItem(userPostsKey, JSON.stringify(myPosts));
+
+        showNotification(`Post for ${currentSharePlatform} was saved to 'My Social Posts'!`, "success");
+        renderMySocialPosts();
+        closeShareModal();
+    }
+    
+    /**
+     * Gets an SVG icon string for a given social media platform.
+     * @param platform The social media platform.
+     * @returns An SVG string or a fallback span with the platform name.
+     */
+    function getPlatformIcon(platform: string): string {
+        switch (platform) {
+            case 'x':
+                return `<svg class="platform-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>`;
+            case 'facebook':
+                return `<svg class="platform-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><path d="M22 12c0-5.523-4.477-10-10-10S2 6.477 2 12c0 4.991 3.657 9.128 8.438 9.878V14.89h-2.87v-2.782h2.87V9.64c0-2.858 1.708-4.44 4.316-4.44 1.235 0 2.502.224 2.502.224v2.485h-1.313c-1.428 0-1.884.89-1.884 1.815v2.109h3.28l-.523 2.782h-2.757v7.008C18.343 21.128 22 16.991 22 12z"/></svg>`;
+            case 'instagram':
+                return `<svg class="platform-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2c-2.717 0-3.056.01-4.122.06-1.065.05-1.79.217-2.428.465a4.902 4.902 0 0 0-1.772 1.153 4.902 4.902 0 0 0-1.153 1.772c-.248.638-.415 1.363-.465 2.428C2.01 8.944 2 9.283 2 12s.01 3.056.06 4.122c.05 1.065.217 1.79.465 2.428a4.902 4.902 0 0 0 1.153 1.772 4.902 4.902 0 0 0 1.772 1.153c.638.248 1.363.415 2.428.465C8.944 21.99 9.283 22 12 22s3.056-.01 4.122-.06c1.065-.05 1.79-.217 2.428-.465a4.902 4.902 0 0 0 1.772-1.153 4.902 4.902 0 0 0 1.153-1.772c.248-.638.415-1.363-.465-2.428C21.99 15.056 22 14.717 22 12s-.01-3.056-.06-4.122c-.05-1.065-.217-1.79-.465-2.428a4.902 4.902 0 0 0-1.153-1.772 4.902 4.902 0 0 0-1.772-1.153c-.638-.248-1.363-.415-2.428-.465C15.056 2.01 14.717 2 12 2zm0 1.802c2.67 0 2.987.01 4.042.059.975.044 1.504.207 1.857.344.467.182.86.399 1.25.789.39.39.607.783.789 1.25.137.353.3.882.344 1.857.049 1.055.059 1.372.059 4.042s-.01 2.987-.059 4.042c-.044.975-.207 1.504-.344 1.857a3.097 3.097 0 0 1-.789 1.25 3.097 3.097 0 0 1-1.25.789c-.353.137-.882.3-1.857.344-1.055.049-1.372.059-4.042.059s-2.987-.01-4.042-.059c-.975-.044-1.504-.207-1.857-.344a3.097 3.097 0 0 1-1.25-.789 3.097 3.097 0 0 1-.789-1.25c-.137-.353-.3-.882-.344-1.857C3.81 15.056 3.802 14.717 3.802 12s.01-2.987.059-4.042c.044-.975.207-1.504.344-1.857.182-.467.399-.86.789-1.25.39-.39.783-.607 1.25-.789.353-.137.882-.3 1.857-.344C9.013 3.81 9.33 3.802 12 3.802zM12 7.25a4.75 4.75 0 1 0 0 9.5 4.75 4.75 0 0 0 0-9.5zM12 15a3 3 0 1 1 0-6 3 3 0 0 1 0 6zm6.5-7.75a1.25 1.25 0 1 0 0-2.5 1.25 1.25 0 0 0 0 2.5z"/></svg>`;
+            case 'linkedin':
+                return `<svg class="platform-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><path d="M19 0h-14c-2.761 0-5 2.239-5 5v14c0 2.761 2.239 5 5 5h14c2.762 0 5-2.239 5-5v-14c0-2.761-2.238-5-5-5zm-11 19h-3v-11h3v11zm-1.5-12.268c-.966 0-1.75-.79-1.75-1.764s.784-1.764 1.75-1.764 1.75.79 1.75 1.764-.783 1.764-1.75 1.764zm13.5 12.268h-3v-5.604c0-3.368-4-3.113-4 0v5.604h-3v-11h3v1.765c1.396-2.586 7-2.777 7 2.476v6.759z"/></svg>`;
+            default:
+                return `<span class="platform-text">${platform}</span>`; // Fallback to text
+        }
+    }
+
+    /**
+     * Renders the user's saved social posts.
+     */
+    function renderMySocialPosts() {
+        if (!currentUser) {
+            myPostsSection.style.display = 'none';
+            return;
+        }
+
+        myPostsSection.style.display = 'block';
+
+        const userPostsKey = `gemvision_posts_${currentUser.email}`;
+        const posts: SocialPost[] = JSON.parse(localStorage.getItem(userPostsKey) || '[]');
+        
+        myPostsGrid.innerHTML = '';
+
+        if (posts.length === 0) {
+            myPostsGrid.innerHTML = `<p class="empty-gallery-message">You haven't posted anything yet. Share a design to get started!</p>`;
+            return;
+        }
+
+        posts.forEach(post => {
+            const card = document.createElement('article');
+            card.className = 'social-post-card';
+            const mediaElement = post.videoUrl 
+                ? `<video src="${post.videoUrl}" muted loop playsinline></video>` 
+                : `<img src="${post.designImage}" alt="${post.designName}" loading="lazy">`;
+
+            card.innerHTML = `
+                <div class="media-preview">${mediaElement}</div>
+                <div class="social-post-content">
+                    <div class="social-post-header">
+                        <div class="platform-icon-container">${getPlatformIcon(post.platform)}</div>
+                        <span class="timestamp">${new Date(post.timestamp).toLocaleDateString()}</span>
+                    </div>
+                    <p class="social-post-caption">${post.caption}</p>
+                </div>
+            `;
+            myPostsGrid.appendChild(card);
+        });
     }
 
 
@@ -1427,7 +1817,12 @@ document.addEventListener('DOMContentLoaded', () => {
             // Handle Save Design
             if (target.classList.contains('save-design-btn') && designCard.classList.contains('design-card')) {
                 handleSaveDesign(target);
-                return; // Prioritize save action
+                return;
+            }
+             // Handle Share Design
+            if (target.classList.contains('share-design-btn') && designCard.classList.contains('design-card')) {
+                openShareModal(target);
+                return;
             }
         
              // Handle Image Zoom on any image inside the cards
@@ -1482,6 +1877,12 @@ document.addEventListener('DOMContentLoaded', () => {
             openProfileModal();
         } else {
             openAuthModal('login');
+        }
+    });
+    navUserProfile.addEventListener('click', (e) => {
+        e.preventDefault();
+        if (currentUser) {
+            openProfileModal();
         }
     });
     
@@ -1554,6 +1955,7 @@ document.addEventListener('DOMContentLoaded', () => {
         saveCurrentUserState();
         updateAuthStateUI();
         renderMyCreationsGallery();
+        renderMySocialPosts();
         closeAuthModal();
         showNotification("Account created successfully! You can now start designing.", "success");
     });
@@ -1570,7 +1972,8 @@ document.addEventListener('DOMContentLoaded', () => {
             updateAuthStateUI();
             closeAuthModal();
             showNotification('Welcome, Administrator!', 'success');
-            renderMyCreationsGallery(); // Also render for admin
+            renderMyCreationsGallery();
+            renderMySocialPosts();
             return;
         }
 
@@ -1579,10 +1982,16 @@ document.addEventListener('DOMContentLoaded', () => {
         const enteredPasswordHash = await hashPassword(password);
 
         if (userData && userData.password === enteredPasswordHash) {
-             currentUser = { email: email, attemptsLeft: userData.attemptsLeft, plan: userData.plan || 'free' };
+             currentUser = { 
+                email: email, 
+                attemptsLeft: userData.attemptsLeft, 
+                plan: userData.plan || 'free',
+                profilePicture: userData.profilePicture 
+            };
              saveCurrentUserState();
              updateAuthStateUI();
              renderMyCreationsGallery();
+             renderMySocialPosts();
              closeAuthModal();
              showNotification(`Welcome back, ${email}!`, 'success');
         } else {
@@ -1604,11 +2013,17 @@ document.addEventListener('DOMContentLoaded', () => {
         profileEditView.style.display = 'block';
     });
     
+    profilePictureUpload.addEventListener('change', () => {
+        if (profilePictureUpload.files && profilePictureUpload.files[0]) {
+            handleProfilePictureUpload(profilePictureUpload.files[0]);
+        }
+    });
+    
     profileEditForm.addEventListener('submit', (e) => {
         e.preventDefault();
-        // In a real app, you would handle password changes, etc.
-        // For now, we just acknowledge the save.
-        // The email (the key) cannot be changed in this simple simulation.
+        // The profile picture is saved on-change, so this button just saves other data
+        // and switches the view back.
+        // For now, we just acknowledge the save as email (key) can't be changed.
         showNotification("Profile updated successfully!", "success");
         profileView.style.display = 'block';
         profileEditView.style.display = 'none';
@@ -1677,6 +2092,22 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
+    // Share Modal Listeners
+    shareCloseBtn.addEventListener('click', closeShareModal);
+    shareModal.addEventListener('click', (e) => {
+        if (e.target === shareModal) closeShareModal();
+    });
+    shareTabsContainer.addEventListener('click', (e) => {
+        const target = e.target as HTMLElement;
+        if (target.classList.contains('share-tab')) {
+            switchShareTab(target as HTMLButtonElement);
+        }
+    });
+    regenerateCaptionBtn.addEventListener('click', generateSocialCaption);
+    createReelBtn.addEventListener('click', handleReelGeneration);
+    postToSocialBtn.addEventListener('click', handleSavePost);
+
+
 
     // --- Initial State ---
     function initializeApp() {
@@ -1712,6 +2143,7 @@ document.addEventListener('DOMContentLoaded', () => {
         updateDisplayedPrices(); // Set initial prices based on default currency
         renderShowcaseGallery();
         renderMyCreationsGallery();
+        renderMySocialPosts();
         dreamBtn.disabled = true;
         analyzeGemstoneBtn.disabled = true;
     }
