@@ -1868,6 +1868,12 @@ document.addEventListener('DOMContentLoaded', () => {
     dreamBtn.addEventListener('click', dreamUpPrompt);
     analyzeGemstoneBtn.addEventListener('click', analyzeGemstone);
 
+    imagePreviewContainer.addEventListener('click', () => {
+        if (uploadedFile && imagePreview.src && imagePreview.src !== '#') {
+            openImageZoom(imagePreview.src, 'gemstone');
+        }
+    });
+
     captureFrameBtn.addEventListener('click', () => {
         const canvas = document.createElement('canvas');
         canvas.width = videoPreview.videoWidth;

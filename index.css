@@ -321,6 +321,7 @@ input[type="file"] {
     width: 150px;
     height: 150px;
     margin-top: 1rem;
+    cursor: zoom-in;
 }
 
 #image-preview {
