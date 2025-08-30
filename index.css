@@ -870,7 +870,6 @@ input[type="file"] {
     box-shadow: var(--shadow-sm);
     display: flex;
     flex-direction: column;
-    position: relative;
 }
 .social-post-card .media-preview {
     width: 100%;
@@ -883,7 +882,8 @@ input[type="file"] {
     object-fit: cover;
 }
 .social-post-content {
-    padding: 1.5rem;
+    padding: 1.5rem 1.5rem 0 1.5rem;
+    flex-grow: 1;
 }
 .social-post-header {
     display: flex;
@@ -930,18 +930,53 @@ input[type="file"] {
     background-color: var(--trust-accent-color);
     border-radius: 3px;
 }
-.posted-badge {
-    position: absolute;
-    top: 10px;
-    right: 10px;
-    background-color: var(--success-color);
-    color: white;
-    padding: 0.2rem 0.5rem;
-    border-radius: 12px;
-    font-size: 0.75rem;
+.social-post-actions {
+    padding: 1.5rem;
+    margin-top: auto;
+}
+.download-post-btn {
+    width: 100%;
+    padding: 0.7rem;
+    border: 1px solid var(--trust-accent-color);
+    background: transparent;
+    color: var(--trust-accent-color);
+    border-radius: 5px;
+    font-size: 0.9rem;
     font-weight: 600;
-    text-transform: uppercase;
-    z-index: 5;
+    cursor: pointer;
+    transition: var(--transition-fast);
+}
+.download-post-btn:hover {
+    background: var(--trust-accent-color);
+    color: var(--text-color);
+}
+.download-links {
+    margin-top: 1rem;
+    display: none; /* Hidden by default */
+    flex-direction: column;
+    gap: 0.5rem;
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height 0.3s ease-out;
+}
+.download-links.active {
+    display: flex;
+    max-height: 200px;
+}
+.download-links a {
+    display: block;
+    padding: 0.6rem 1rem;
+    background-color: var(--primary-color);
+    color: var(--text-secondary-color);
+    text-decoration: none;
+    border-radius: 5px;
+    transition: var(--transition-fast);
+    font-size: 0.9rem;
+    text-align: center;
+}
+.download-links a:hover {
+    background-color: var(--trust-accent-color);
+    color: var(--text-color);
 }
 
 

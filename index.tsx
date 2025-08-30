@@ -181,7 +181,6 @@ document.addEventListener('DOMContentLoaded', () => {
         attemptsLeft: number; 
         plan: UserPlan;
         profilePicture?: string;
-        connectedAccounts: Record<SocialPlatform, boolean>;
     } | null = null;
     let registrationEmail: string | null = null; // Used for multi-step registration
     const ADMIN_EMAIL = 'admin@gemvision.ai';
@@ -237,7 +236,6 @@ document.addEventListener('DOMContentLoaded', () => {
         videoUrl?: string;
         timestamp: number;
         designName: string;
-        posted: boolean; // To track if it was "posted" directly
     }
     
     // --- Functions ---
@@ -1116,7 +1114,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     attemptsLeft: currentUser.attemptsLeft, 
                     plan: currentUser.plan,
                     profilePicture: currentUser.profilePicture,
-                    connectedAccounts: currentUser.connectedAccounts,
                 };
                 localStorage.setItem('gemvision_users', JSON.stringify(users));
             }
@@ -1547,13 +1544,13 @@ document.addEventListener('DOMContentLoaded', () => {
         
         // Update post button state and text
         if (currentUser) {
-            const isConnected = currentUser.connectedAccounts[platform];
-            postToSocialBtn.disabled = !isConnected;
-            const platformName = platform.charAt(0).toUpperCase() + platform.slice(1);
-            postToSocialBtn.textContent = isConnected ? `Post to ${platformName}` : 'Save to Gallery';
-            postToSocialBtn.dataset.tooltip = isConnected 
-                ? `Post this design directly to ${platformName}.` 
-                : `Connect your ${platformName} account in your profile to post directly.`;
+            postToSocialBtn.disabled = false; // Always enabled if user is logged in
+            postToSocialBtn.textContent = 'Save to My Posts';
+            postToSocialBtn.dataset.tooltip = `Save this post draft to your 'My Social Posts' gallery.`;
+        } else {
+             postToSocialBtn.disabled = true;
+             postToSocialBtn.textContent = 'Save to My Posts';
+             postToSocialBtn.dataset.tooltip = 'Please log in to save your posts.';
         }
         
         // Generate a new caption for the selected platform
@@ -1717,16 +1714,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const caption = shareCaptionInput.value.trim();
         if (!caption) {
-            showNotification("Please generate or write a caption before saving or posting.", "error");
+            showNotification("Please generate or write a caption before saving.", "error");
             return;
-        }
-        
-        const isConnected = currentUser.connectedAccounts[currentSharePlatform];
-        
-        // If connected, simulate the post. Otherwise, just save.
-        if (isConnected) {
-            // In a real app, this is where you'd make an API call to the social platform.
-            showNotification(`Successfully posted to ${currentSharePlatform}! (Simulation)`, "success");
         }
 
         const newPost: SocialPost = {
@@ -1737,7 +1726,6 @@ document.addEventListener('DOMContentLoaded', () => {
             videoUrl: generatedReelUrl || undefined,
             timestamp: Date.now(),
             designName: currentShareDesign.name,
-            posted: isConnected,
         };
         
         const userPostsKey = `gemvision_posts_${currentUser.email}`;
@@ -1794,13 +1782,19 @@ document.addEventListener('DOMContentLoaded', () => {
         posts.forEach(post => {
             const card = document.createElement('article');
             card.className = 'social-post-card';
+             // Store data directly on the card for the download handler
+            card.dataset.caption = post.caption;
+            card.dataset.imageUrl = post.designImage;
+            if (post.videoUrl) {
+                card.dataset.videoUrl = post.videoUrl;
+            }
+            card.dataset.designName = post.designName;
+
             const mediaElement = post.videoUrl 
                 ? `<video src="${post.videoUrl}" muted loop playsinline></video>` 
                 : `<img src="${post.designImage}" alt="${post.designName}" loading="lazy">`;
-            const postedBadge = post.posted ? '<div class="posted-badge">Posted</div>' : '';
 
             card.innerHTML = `
-                ${postedBadge}
                 <div class="media-preview">${mediaElement}</div>
                 <div class="social-post-content">
                     <div class="social-post-header">
@@ -1809,10 +1803,69 @@ document.addEventListener('DOMContentLoaded', () => {
                     </div>
                     <p class="social-post-caption">${post.caption}</p>
                 </div>
+                <div class="social-post-actions">
+                    <button class="download-post-btn">Download</button>
+                    <div class="download-links"></div>
+                </div>
             `;
             myPostsGrid.appendChild(card);
         });
     }
+
+    /**
+     * Handles showing download links for a saved social post.
+     * @param button The download button that was clicked.
+     */
+    function handleDownloadPost(button: HTMLButtonElement) {
+        const card = button.closest('.social-post-card') as HTMLElement;
+        const linksContainer = card.querySelector('.download-links');
+        if (!card || !linksContainer) return;
+    
+        // Toggle visibility
+        if (linksContainer.classList.contains('active')) {
+            linksContainer.classList.remove('active');
+            linksContainer.innerHTML = ''; // Clear links when closing
+            button.textContent = 'Download';
+            return;
+        }
+
+        button.textContent = 'Close';
+        linksContainer.innerHTML = ''; // Clear previous before showing
+        linksContainer.classList.add('active');
+
+        const { caption, imageUrl, videoUrl, designName } = card.dataset;
+        const sanitizedName = designName?.replace(/[^a-z0-9]/gi, '_').toLowerCase() || 'design';
+
+        // 1. Download Caption Link
+        if (caption) {
+            const blob = new Blob([caption], { type: 'text/plain' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.textContent = 'Download Caption (.txt)';
+            a.download = `${sanitizedName}_caption.txt`;
+            linksContainer.appendChild(a);
+        }
+
+        // 2. Download Image Link
+        if (imageUrl) {
+            const a = document.createElement('a');
+            a.href = imageUrl;
+            a.textContent = 'Download Image';
+            a.download = `${sanitizedName}_image.jpg`; // Assume jpeg, can be improved
+            linksContainer.appendChild(a);
+        }
+
+        // 3. Download Video Link
+        if (videoUrl) {
+            const a = document.createElement('a');
+            a.href = videoUrl;
+            a.textContent = 'Download Reel (.mp4)';
+            a.download = `${sanitizedName}_reel.mp4`;
+            linksContainer.appendChild(a);
+        }
+    }
+
 
     // --- AI Helper Chat Functions ---
 
@@ -2018,6 +2071,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             }
         }
+
+        const socialPostCard = target.closest('.social-post-card');
+        if (socialPostCard && target.classList.contains('download-post-btn')) {
+            handleDownloadPost(target as HTMLButtonElement);
+            return;
+        }
     });
 
     zoomCloseBtn.addEventListener('click', closeImageZoom);
@@ -2106,20 +2165,17 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const users = JSON.parse(localStorage.getItem('gemvision_users') || '{}');
         const hashedPassword = await hashPassword(password);
-        const initialConnectedAccounts = { x: false, facebook: false, instagram: false, linkedin: false };
         users[registrationEmail] = { 
             password: hashedPassword, 
             attemptsLeft: 3, 
-            plan: 'free',
-            connectedAccounts: initialConnectedAccounts
+            plan: 'free'
         };
         localStorage.setItem('gemvision_users', JSON.stringify(users));
 
         currentUser = { 
             email: registrationEmail, 
             attemptsLeft: 3, 
-            plan: 'free',
-            connectedAccounts: initialConnectedAccounts
+            plan: 'free'
         };
         saveCurrentUserState();
         updateAuthStateUI();
@@ -2139,8 +2195,7 @@ document.addEventListener('DOMContentLoaded', () => {
             currentUser = { 
                 email: ADMIN_EMAIL, 
                 attemptsLeft: 999, 
-                plan: 'admin',
-                connectedAccounts: { x: true, facebook: true, instagram: true, linkedin: true }
+                plan: 'admin'
              };
             saveCurrentUserState();
             updateAuthStateUI();
@@ -2157,7 +2212,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 email: 'tester@gemvision.ai',
                 attemptsLeft: 9999, // Unlimited attempts for testing
                 plan: 'free', // Keep on free plan to test related UI, but with no limits
-                connectedAccounts: { x: false, facebook: false, instagram: false, linkedin: false }
             };
             saveCurrentUserState();
             updateAuthStateUI();
@@ -2177,8 +2231,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 email: email, 
                 attemptsLeft: userData.attemptsLeft, 
                 plan: userData.plan || 'free',
-                profilePicture: userData.profilePicture,
-                connectedAccounts: userData.connectedAccounts || { x: false, facebook: false, instagram: false, linkedin: false }
+                profilePicture: userData.profilePicture
             };
              saveCurrentUserState();
              updateAuthStateUI();
