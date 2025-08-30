@@ -2280,9 +2280,8 @@ document.addEventListener('DOMContentLoaded', () => {
             return; // Stop initialization of user/payment state
         }
         
-        // Initialize Stripe with a test key
-        // NOTE: This is a public test key from Stripe's documentation.
-        stripe = Stripe('pk_test_51Pcb34RpJ92f5dC6n4E8Wb7L7iG6Nl2J4cWf6yGk9j0v2O7Xb8Q0f4d1C5e8N4z6F7f7x6e5dC4a3b2c1d0e0f');
+        // Initialize Stripe with a public test key from Stripe's documentation.
+        stripe = Stripe('pk_test_TYooMQauvdEDq54NiTphI7jx003d2a70s0');
     
         const storedUser = localStorage.getItem('gemvision_currentUser');
         if (storedUser) {
