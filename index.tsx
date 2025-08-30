@@ -2,7 +2,7 @@
  * @license
  * SPDX-License-Identifier: Apache-2.0
  */
-import { GoogleGenAI, Type } from "@google/genai";
+import { GoogleGenAI, Type, Chat } from "@google/genai";
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 
@@ -97,7 +97,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const profileEditPreview = document.getElementById('profile-edit-preview') as HTMLImageElement;
     const profileEditEmailInput = document.getElementById('profile-edit-email') as HTMLInputElement;
     const profileLogoutBtn = document.getElementById('profile-logout-btn') as HTMLButtonElement;
-    const connectedAccountsList = document.getElementById('connected-accounts-list') as HTMLUListElement;
 
     // Admin Panel Elements
     const adminPanel = document.getElementById('admin-panel') as HTMLElement;
@@ -149,6 +148,14 @@ document.addEventListener('DOMContentLoaded', () => {
     const shareVideoPreview = document.getElementById('share-video-preview') as HTMLVideoElement;
     const shareVideoDownloadBtn = document.getElementById('share-video-download-btn') as HTMLAnchorElement;
 
+    // AI Helper Chat Elements
+    const aiHelperFab = document.getElementById('ai-helper-fab') as HTMLButtonElement;
+    const aiHelperWidget = document.getElementById('ai-helper-widget') as HTMLDivElement;
+    const chatCloseBtn = document.getElementById('chat-close-btn') as HTMLButtonElement;
+    const chatMessagesContainer = document.getElementById('chat-messages') as HTMLDivElement;
+    const chatForm = document.getElementById('chat-form') as HTMLFormElement;
+    const chatInput = document.getElementById('chat-input') as HTMLInputElement;
+
 
     // --- State Management ---
     let uploadedFile: {
@@ -194,6 +201,9 @@ document.addEventListener('DOMContentLoaded', () => {
     let currentShareImageUrl: string | null = null;
     let currentSharePlatform: SocialPlatform = 'x';
     let generatedReelUrl: string | null = null;
+    
+    // AI Helper State
+    let aiHelperChat: Chat | null = null;
 
 
     // --- Gemini API Initialization ---
@@ -1055,8 +1065,6 @@ document.addEventListener('DOMContentLoaded', () => {
         profileAttempts.textContent = currentUser.plan === 'free' ? currentUser.attemptsLeft.toString() : 'Unlimited';
         profileEditEmailInput.value = currentUser.email;
         
-        renderConnectedAccounts();
-
         // Reset to view mode
         profileView.style.display = 'block';
         profileEditView.style.display = 'none';
@@ -1226,55 +1234,6 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
     
-    /**
-     * Renders the connected accounts section in the profile modal.
-     */
-    function renderConnectedAccounts() {
-        if (!currentUser) return;
-    
-        const platforms: { id: SocialPlatform; name: string }[] = [
-            { id: 'x', name: 'X' },
-            { id: 'facebook', name: 'Facebook' },
-            { id: 'instagram', name: 'Instagram' },
-            { id: 'linkedin', name: 'LinkedIn' },
-        ];
-    
-        connectedAccountsList.innerHTML = '';
-        platforms.forEach(platform => {
-            const isConnected = currentUser.connectedAccounts[platform.id];
-            const li = document.createElement('li');
-            li.className = 'connected-account-item';
-            li.innerHTML = `
-                <div class="platform-info">
-                    <div class="platform-icon-container">${getPlatformIcon(platform.id)}</div>
-                    <span>${platform.name}</span>
-                </div>
-                <button 
-                    class="${isConnected ? 'disconnect-account-btn' : 'connect-account-btn'}" 
-                    data-platform="${platform.id}">
-                    ${isConnected ? 'Disconnect' : 'Connect'}
-                </button>
-            `;
-            connectedAccountsList.appendChild(li);
-        });
-    }
-
-    /**
-     * Handles the connect/disconnect button click for social accounts.
-     * @param platform The social media platform id.
-     */
-    function handleAccountConnectionToggle(platform: SocialPlatform) {
-        if (!currentUser) return;
-    
-        currentUser.connectedAccounts[platform] = !currentUser.connectedAccounts[platform];
-        saveCurrentUserState();
-        renderConnectedAccounts();
-        showNotification(
-            `${platform.charAt(0).toUpperCase() + platform.slice(1)} account ${currentUser.connectedAccounts[platform] ? 'connected' : 'disconnected'}.`,
-            'success'
-        );
-    }
-
     async function handleAddToShowcase(file: File) {
         if (!file.type.startsWith('image/')) {
             showNotification('Please select an image file.', 'error');
@@ -1855,6 +1814,87 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    // --- AI Helper Chat Functions ---
+
+    /**
+     * Appends a message to the chat UI.
+     * @param text The message text.
+     * @param sender 'user', 'ai', or 'error'.
+     */
+    function appendChatMessage(text: string, sender: 'user' | 'ai' | 'error') {
+        const messageElement = document.createElement('div');
+        messageElement.className = `chat-message ${sender}`;
+        messageElement.textContent = text;
+        chatMessagesContainer.appendChild(messageElement);
+        chatMessagesContainer.scrollTop = chatMessagesContainer.scrollHeight;
+    }
+
+    /**
+     * Displays a typing indicator in the chat.
+     */
+    function showTypingIndicator() {
+        const indicator = document.createElement('div');
+        indicator.className = 'chat-message loading';
+        indicator.innerHTML = `
+            <div class="typing-indicator">
+                <span></span><span></span><span></span>
+            </div>
+        `;
+        chatMessagesContainer.appendChild(indicator);
+        chatMessagesContainer.scrollTop = chatMessagesContainer.scrollHeight;
+    }
+
+    /**
+     * Removes the typing indicator from the chat.
+     */
+    function hideTypingIndicator() {
+        const indicator = chatMessagesContainer.querySelector('.loading');
+        if (indicator) {
+            indicator.remove();
+        }
+    }
+
+    /**
+     * Handles sending a message from the chat input.
+     * @param event The form submission event.
+     */
+    async function handleSendMessage(event: Event) {
+        event.preventDefault();
+        const userMessage = chatInput.value.trim();
+        if (!userMessage || !aiHelperChat) return;
+
+        appendChatMessage(userMessage, 'user');
+        chatInput.value = '';
+        showTypingIndicator();
+
+        try {
+            const response = await aiHelperChat.sendMessage({ message: userMessage });
+            hideTypingIndicator();
+            appendChatMessage(response.text, 'ai');
+        } catch (error) {
+            console.error("AI Helper Error:", error);
+            hideTypingIndicator();
+            appendChatMessage("Sorry, I encountered an error. Please try again.", 'error');
+        }
+    }
+    
+    /**
+     * Initializes the AI helper chat session.
+     */
+    function initializeAiHelper() {
+        aiHelperChat = ai.chats.create({
+            model: 'gemini-2.5-flash',
+            config: {
+                systemInstruction: `You are a friendly and helpful customer support agent for a web application called GemVision AI. 
+                Your goal is to answer user questions about how to use the application, troubleshoot common issues, and explain its features.
+                The application allows users to upload a photo of a gemstone and generate jewelry designs.
+                Key features include: AI-powered design generation, 3D model viewing, gemstone analysis, social media sharing, user accounts (free, pro, elite plans), and saving creations.
+                Do not answer questions that are not related to GemVision AI. If asked an unrelated question, politely state that you can only assist with questions about the GemVision AI application.
+                Keep your answers concise and easy to understand.`
+            },
+        });
+    }
+
 
     // --- Event Listeners ---
     fileUpload.addEventListener('change', () => {
@@ -2158,12 +2198,6 @@ document.addEventListener('DOMContentLoaded', () => {
         if (target === profileModal) {
             closeProfileModal();
         }
-        if (target.classList.contains('connect-account-btn') || target.classList.contains('disconnect-account-btn')) {
-            const platform = target.dataset.platform as SocialPlatform;
-            if (platform) {
-                handleAccountConnectionToggle(platform);
-            }
-        }
     });
     profileLogoutBtn.addEventListener('click', handleLogout);
 
@@ -2266,6 +2300,21 @@ document.addEventListener('DOMContentLoaded', () => {
     createReelBtn.addEventListener('click', handleReelGeneration);
     postToSocialBtn.addEventListener('click', handlePostAction);
 
+    // AI Helper Chat Listeners
+    aiHelperFab.addEventListener('click', () => {
+        const isOpening = !aiHelperWidget.classList.contains('open');
+        aiHelperWidget.classList.toggle('open');
+        
+        // Add initial greeting if opening for the first time
+        if (isOpening && chatMessagesContainer.children.length === 0) {
+            appendChatMessage("Hello! How can I help you with GemVision AI today?", 'ai');
+        }
+    });
+    chatCloseBtn.addEventListener('click', () => {
+        aiHelperWidget.classList.remove('open');
+    });
+    chatForm.addEventListener('submit', handleSendMessage);
+
 
 
     // --- Initial State ---
@@ -2302,6 +2351,7 @@ document.addEventListener('DOMContentLoaded', () => {
         renderShowcaseGallery();
         renderMyCreationsGallery();
         renderMySocialPosts();
+        initializeAiHelper(); // Set up the AI chat agent
         dreamBtn.disabled = true;
         analyzeGemstoneBtn.disabled = true;
     }

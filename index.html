@@ -331,13 +331,6 @@
                         <p id="profile-attempts"></p>
                     </div>
                     <hr class="modal-divider">
-                    <div id="connected-accounts-section" class="connected-accounts-section">
-                        <h3>Connected Accounts</h3>
-                        <ul id="connected-accounts-list" class="connected-accounts-list">
-                           <!-- JS will populate this -->
-                        </ul>
-                    </div>
-                    <hr class="modal-divider">
                     <button id="edit-profile-btn" class="secondary-button">Edit Profile</button>
                     <button id="profile-logout-btn" class="logout-button">Logout</button>
                 </div>
@@ -468,6 +461,27 @@
             </div>
         </div>
     </div>
+    
+    <!-- AI Helper -->
+    <button id="ai-helper-fab" class="ai-helper-fab has-tooltip" aria-label="Open AI Helper" data-tooltip="Need help? Ask our AI assistant!">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 17h-2v-2h2v2zm2.07-7.75l-.9.92C13.45 12.9 13 13.5 13 15h-2v-.5c0-1.1.45-2.1 1.17-2.83l1.24-1.26c.37-.36.59-.86.59-1.41 0-1.1-.9-2-2-2s-2 .9-2 2H8c0-2.21 1.79-4 4-4s4 1.79 4 4c0 .88-.36 1.68-.93 2.25z"/></svg>
+    </button>
+    <div id="ai-helper-widget" class="ai-helper-widget">
+        <div class="chat-header">
+            <h3>GemVision AI Helper</h3>
+            <button id="chat-close-btn" class="chat-close-btn">&times;</button>
+        </div>
+        <div id="chat-messages" class="chat-messages">
+            <!-- Messages will be injected here -->
+        </div>
+        <form id="chat-form" class="chat-form">
+            <input type="text" id="chat-input" placeholder="Ask a question..." autocomplete="off">
+            <button type="submit" id="chat-send-btn">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
+            </button>
+        </form>
+    </div>
+
     <div id="notification-container"></div>
     <script type="module" src="index.tsx"></script>
 </body>
