@@ -15,6 +15,11 @@
     --shadow-sm: 0 4px 15px rgba(0,0,0,0.2);
     --shadow-md: 0 10px 30px rgba(0,0,0,0.4);
     --transition-fast: all 0.3s ease;
+
+    /* Task Status Colors */
+    --status-in-progress: #3498db;
+    --status-completed: #2ecc71;
+    --status-on-hold: #95a5a6;
 }
 
 * {
@@ -249,7 +254,7 @@ main {
     margin-bottom: 0;
 }
 
-.input-group input, .input-group textarea {
+.input-group input, .input-group textarea, .input-group select {
     width: 100%;
     padding: 0.8rem;
     border: 1px solid #3c4a5c;
@@ -261,7 +266,7 @@ main {
     color: var(--text-color);
 }
 
-.input-group input:focus, .input-group textarea:focus {
+.input-group input:focus, .input-group textarea:focus, .input-group select:focus {
     outline: none;
     border-color: var(--accent-color);
     box-shadow: 0 0 0 3px rgba(212, 175, 55, 0.3);
@@ -631,12 +636,28 @@ input[type="file"] {
 
 
 /* Gallery Sections */
-.showcase-gallery h2, .your-creations-section h2, .my-creations-section h2, .my-posts-section h2 {
+.showcase-gallery h2, .your-creations-section h2, .my-creations-section h2, .my-posts-section h2, .my-tasks-section h2 {
     text-align: center;
     font-size: 2.5rem;
     margin-bottom: 2rem;
     color: var(--accent-color);
 }
+.my-tasks-section .section-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 2rem;
+}
+.my-tasks-section .section-header h2 {
+    margin-bottom: 0;
+    text-align: left;
+}
+.my-tasks-section .section-header .generate-button {
+    width: auto;
+    font-size: 1rem;
+    padding: 0.75rem 1.5rem;
+}
+
 
 .empty-gallery-message {
     text-align: center;
@@ -979,6 +1000,122 @@ input[type="file"] {
     color: var(--text-color);
 }
 
+/* --- My Tasks Section --- */
+.task-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    gap: 1.5rem;
+}
+
+.task-card {
+    background: var(--card-bg);
+    border-radius: 12px;
+    padding: 1.5rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    border-left: 5px solid; /* Status color indicator */
+    transition: var(--transition-fast);
+}
+.task-card:hover {
+    transform: translateY(-5px);
+    box-shadow: var(--shadow-md);
+}
+
+.task-card[data-status="in-progress"] { border-color: var(--status-in-progress); }
+.task-card[data-status="completed"] { border-color: var(--status-completed); }
+.task-card[data-status="on-hold"] { border-color: var(--status-on-hold); }
+
+
+.task-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 1rem;
+}
+.task-header h3 {
+    font-size: 1.5rem;
+    word-break: break-word;
+}
+.task-status-select {
+    padding: 0.3rem 0.5rem;
+    font-size: 0.8rem;
+    font-weight: 600;
+    border-radius: 5px;
+    border: none;
+    color: white;
+    cursor: pointer;
+}
+.task-status-select[data-status="in-progress"] { background-color: var(--status-in-progress); }
+.task-status-select[data-status="completed"] { background-color: var(--status-completed); }
+.task-status-select[data-status="on-hold"] { background-color: var(--status-on-hold); }
+
+.task-card .due-date {
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: var(--text-secondary-color);
+}
+.task-card .description {
+    font-size: 0.9rem;
+    color: var(--text-secondary-color);
+}
+
+.linked-designs {
+    margin-top: auto;
+    padding-top: 1rem;
+    border-top: 1px solid var(--secondary-color);
+}
+.linked-designs h4 {
+    font-size: 1rem;
+    margin-bottom: 0.75rem;
+}
+.linked-designs-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+.linked-design-item {
+    width: 50px;
+    height: 50px;
+    border-radius: 6px;
+    object-fit: cover;
+    border: 2px solid var(--primary-color);
+    transition: var(--transition-fast);
+}
+.linked-design-item:hover {
+    transform: scale(1.1);
+    border-color: var(--accent-color);
+}
+
+.task-actions {
+    display: flex;
+    gap: 1rem;
+    margin-top: 1rem;
+}
+.task-action-btn {
+    flex: 1;
+    background: none;
+    border: 1px solid var(--secondary-color);
+    color: var(--text-secondary-color);
+    padding: 0.5rem;
+    font-size: 0.8rem;
+    font-weight: 600;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: var(--transition-fast);
+}
+.task-action-btn.delete:hover {
+    background-color: var(--error-color);
+    border-color: var(--error-color);
+    color: white;
+}
+.task-action-btn.edit:hover {
+    background-color: var(--trust-accent-color);
+    border-color: var(--trust-accent-color);
+    color: white;
+}
+
+
 
 /* Pricing Section */
 .pricing-section h2 {
@@ -1293,6 +1430,45 @@ footer {
 }
 #profile-edit-view .secondary-button {
     margin-top: 0;
+}
+
+/* Task Modal */
+#task-modal .modal-content {
+    max-width: 500px;
+}
+#task-modal .input-group {
+    margin-bottom: 1rem;
+}
+#task-modal .generate-button {
+    margin-top: 1.5rem;
+}
+
+/* Link Design Modal */
+#link-design-modal .modal-content {
+    max-width: 600px;
+}
+.link-design-layout {
+    display: flex;
+    gap: 1.5rem;
+    align-items: flex-start;
+}
+#link-design-preview-image {
+    width: 150px;
+    height: 150px;
+    object-fit: cover;
+    border-radius: 8px;
+    flex-shrink: 0;
+}
+.link-design-controls {
+    flex-grow: 1;
+}
+.link-design-controls p {
+    margin-bottom: 1rem;
+}
+.link-design-controls .generate-button,
+.link-design-controls .secondary-button {
+    font-size: 1rem;
+    padding: 0.8rem;
 }
 
 
@@ -1911,6 +2087,14 @@ footer {
     .share-modal-layout {
         flex-direction: column;
     }
+    .link-design-layout {
+        flex-direction: column;
+    }
+    #link-design-preview-image {
+        width: 100%;
+        height: auto;
+        max-height: 200px;
+    }
 }
 
 
@@ -1965,6 +2149,15 @@ footer {
     .pricing-tier.recommended {
         transform: scale(1); /* Disable zoom on mobile for better stacking */
     }
+    .my-tasks-section .section-header {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 1rem;
+    }
+    .my-tasks-section .section-header h2 {
+        text-align: center;
+    }
+
     .ai-helper-fab {
         bottom: 1rem;
         right: 1rem;

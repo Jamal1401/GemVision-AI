@@ -33,6 +33,7 @@
             </div>
             <nav>
                 <a href="#showcase-gallery">Gallery</a>
+                <a href="#my-tasks-section">My Tasks</a>
                 <a href="#pricing-section">Pricing</a>
                 <div id="nav-user-profile" style="display: none;">
                     <img id="nav-profile-picture" src="#" alt="Profile Picture">
@@ -171,6 +172,16 @@
                 <h2>My Social Posts</h2>
                 <div id="my-posts-grid" class="social-posts-grid">
                     <!-- User's saved social posts will be dynamically inserted here -->
+                </div>
+            </section>
+            
+            <section id="my-tasks-section" class="my-tasks-section" style="display: none;">
+                <div class="section-header">
+                    <h2>My Tasks</h2>
+                    <button id="create-new-task-btn" class="generate-button">Create New Task</button>
+                </div>
+                <div id="my-tasks-grid" class="task-grid">
+                    <!-- User's tasks will be dynamically inserted here -->
                 </div>
             </section>
 
@@ -349,6 +360,61 @@
                         </div>
                         <button type="submit" id="save-profile-btn" class="generate-button">Save Changes</button>
                     </form>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Task Modal -->
+        <div id="task-modal" class="modal-container" style="display: none;">
+            <div class="modal-content">
+                <button id="task-close-btn" class="close-btn">&times;</button>
+                <h2 id="task-modal-title">Create New Task</h2>
+                <form id="task-form">
+                    <div class="input-group">
+                        <label for="task-title">Task Title</label>
+                        <input type="text" id="task-title" required>
+                    </div>
+                    <div class="input-group">
+                        <label for="task-description">Description</label>
+                        <textarea id="task-description" rows="4"></textarea>
+                    </div>
+                    <div class="input-group">
+                        <label for="task-due-date">Due Date</label>
+                        <input type="date" id="task-due-date">
+                    </div>
+                    <div class="input-group">
+                        <label for="task-status">Status</label>
+                        <select id="task-status">
+                            <option value="in-progress">In Progress</option>
+                            <option value="completed">Completed</option>
+                            <option value="on-hold">On Hold</option>
+                        </select>
+                    </div>
+                    <button type="submit" class="generate-button">Save Task</button>
+                </form>
+            </div>
+        </div>
+
+        <!-- Link Design Modal -->
+        <div id="link-design-modal" class="modal-container" style="display: none;">
+            <div class="modal-content">
+                <button id="link-design-close-btn" class="close-btn">&times;</button>
+                <h2>Save & Link Design</h2>
+                <div class="link-design-layout">
+                    <img id="link-design-preview-image" src="#" alt="Design Preview">
+                    <div class="link-design-controls">
+                        <p>Optionally, link this new design to one of your tasks.</p>
+                        <div class="input-group">
+                            <label for="link-task-select">Select a Task</label>
+                            <select id="link-task-select">
+                                <!-- Tasks will be populated here -->
+                            </select>
+                        </div>
+                        <button id="confirm-link-btn" class="generate-button">Save & Link to Selected Task</button>
+                        <hr class="modal-divider">
+                        <button id="create-task-for-design-btn" class="secondary-button">Create New Task for this Design</button>
+                        <button id="save-without-link-btn" class="secondary-button">Just Save to My Creations</button>
+                    </div>
                 </div>
             </div>
         </div>

@@ -110,6 +110,31 @@ document.addEventListener('DOMContentLoaded', () => {
     const myPostsSection = document.getElementById('my-posts-section') as HTMLElement;
     const myPostsGrid = document.getElementById('my-posts-grid') as HTMLDivElement;
 
+    // My Tasks Elements
+    const myTasksSection = document.getElementById('my-tasks-section') as HTMLElement;
+    const myTasksGrid = document.getElementById('my-tasks-grid') as HTMLDivElement;
+    const createNewTaskBtn = document.getElementById('create-new-task-btn') as HTMLButtonElement;
+
+    // Task Modal Elements
+    const taskModal = document.getElementById('task-modal') as HTMLDivElement;
+    const taskModalTitle = document.getElementById('task-modal-title') as HTMLHeadingElement;
+    const taskCloseBtn = document.getElementById('task-close-btn') as HTMLButtonElement;
+    const taskForm = document.getElementById('task-form') as HTMLFormElement;
+    const taskTitleInput = document.getElementById('task-title') as HTMLInputElement;
+    const taskDescriptionInput = document.getElementById('task-description') as HTMLTextAreaElement;
+    const taskDueDateInput = document.getElementById('task-due-date') as HTMLInputElement;
+    const taskStatusSelect = document.getElementById('task-status') as HTMLSelectElement;
+
+    // Link Design Modal Elements
+    const linkDesignModal = document.getElementById('link-design-modal') as HTMLDivElement;
+    const linkDesignCloseBtn = document.getElementById('link-design-close-btn') as HTMLButtonElement;
+    const linkDesignPreviewImage = document.getElementById('link-design-preview-image') as HTMLImageElement;
+    const linkTaskSelect = document.getElementById('link-task-select') as HTMLSelectElement;
+    const confirmLinkBtn = document.getElementById('confirm-link-btn') as HTMLButtonElement;
+    const createTaskForDesignBtn = document.getElementById('create-task-for-design-btn') as HTMLButtonElement;
+    const saveWithoutLinkBtn = document.getElementById('save-without-link-btn') as HTMLButtonElement;
+
+
     // Pricing & Payment Elements
     const currencySwitcher = document.getElementById('currency-switcher') as HTMLDivElement;
     const priceElements = document.querySelectorAll('.price[data-price-usd]') as NodeListOf<HTMLElement>;
@@ -204,6 +229,10 @@ document.addEventListener('DOMContentLoaded', () => {
     // AI Helper State
     let aiHelperChat: Chat | null = null;
 
+    // Task Management State
+    let editingTaskId: string | null = null;
+    let designToSave: { design: Design, imageUrl: string } | null = null;
+
 
     // --- Gemini API Initialization ---
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
@@ -236,6 +265,17 @@ document.addEventListener('DOMContentLoaded', () => {
         videoUrl?: string;
         timestamp: number;
         designName: string;
+    }
+    
+    type TaskStatus = 'in-progress' | 'completed' | 'on-hold';
+
+    interface Task {
+        id: string;
+        title: string;
+        description: string;
+        dueDate: string; // ISO date string: YYYY-MM-DD
+        status: TaskStatus;
+        linkedDesignIds: string[];
     }
     
     // --- Functions ---
@@ -961,10 +1001,10 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     /**
-     * Handles saving a generated design to the user's personal gallery.
+     * Opens a modal to link a design to a task before saving.
      * @param button The save button element that was clicked.
      */
-    async function handleSaveDesign(button: HTMLElement) {
+    function openLinkDesignModal(button: HTMLElement) {
         if (!currentUser) {
             showNotification("Please log in to save your creations.", "error");
             openAuthModal('login');
@@ -973,21 +1013,52 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const card = button.closest('.design-card') as HTMLElement;
         if (!card) return;
+
+        const design: Design = JSON.parse(card.dataset.design || '{}');
+        const imageUrl = card.dataset.imageUrl || '';
+
+        designToSave = { design, imageUrl };
+        linkDesignPreviewImage.src = imageUrl;
+
+        // Populate tasks dropdown
+        const userTasksKey = `gemvision_tasks_${currentUser.email}`;
+        const tasks: Task[] = JSON.parse(localStorage.getItem(userTasksKey) || '[]');
+        linkTaskSelect.innerHTML = '<option value="">Select a task...</option>';
+        tasks.forEach(task => {
+            const option = document.createElement('option');
+            option.value = task.id;
+            option.textContent = task.title;
+            linkTaskSelect.appendChild(option);
+        });
+        confirmLinkBtn.disabled = tasks.length === 0;
+
+        linkDesignModal.style.display = 'flex';
+    }
+
+    function closeLinkDesignModal() {
+        linkDesignModal.style.display = 'none';
+        designToSave = null;
+    }
+
+    /**
+     * The final step that saves a design to storage and optionally links it to a task.
+     * @param taskId The optional ID of the task to link to.
+     */
+    async function saveAndLinkDesign(taskId?: string) {
+        if (!currentUser || !designToSave) {
+            showNotification("An error occurred. Could not save design.", "error");
+            return;
+        }
+
+        const { design, imageUrl } = designToSave;
         
-        button.textContent = 'Saving...';
-        (button as HTMLButtonElement).disabled = true;
-
         try {
-            const design: Design = JSON.parse(card.dataset.design || '{}');
-            const designImageUrl = card.dataset.imageUrl || '';
-
-            if (!uploadedFile || !designImageUrl) {
+            if (!uploadedFile || !imageUrl) {
                 throw new Error("Missing image data. Could not save design.");
             }
 
-            // Resize images before saving to prevent quota errors
             const resizedGemstoneImage = await resizeImage(`data:${uploadedFile.mimeType};base64,${uploadedFile.base64}`);
-            const resizedDesignImage = await resizeImage(designImageUrl);
+            const resizedDesignImage = await resizeImage(imageUrl);
 
             const newItem: ShowcaseItem = {
                 id: `item-${Date.now()}-${Math.random()}`,
@@ -1000,16 +1071,26 @@ document.addEventListener('DOMContentLoaded', () => {
                 imagePrompt: design.imagePrompt,
             };
 
+            // Save the creation to the user's gallery
             const userCreationsKey = `gemvision_creations_${currentUser.email}`;
             let myCreations: ShowcaseItem[] = JSON.parse(localStorage.getItem(userCreationsKey) || '[]');
-            myCreations.unshift(newItem); // Add to the beginning
+            myCreations.unshift(newItem);
             localStorage.setItem(userCreationsKey, JSON.stringify(myCreations));
-
+            
+            // If a taskId is provided, update the task
+            if (taskId) {
+                const userTasksKey = `gemvision_tasks_${currentUser.email}`;
+                let tasks: Task[] = JSON.parse(localStorage.getItem(userTasksKey) || '[]');
+                const taskIndex = tasks.findIndex(t => t.id === taskId);
+                if (taskIndex > -1) {
+                    tasks[taskIndex].linkedDesignIds.push(newItem.id);
+                    localStorage.setItem(userTasksKey, JSON.stringify(tasks));
+                }
+            }
+            
             showNotification("Design saved to My Creations!", "success");
             renderMyCreationsGallery();
-
-            // Finalize button state
-            button.textContent = 'Saved!';
+            renderMyTasks(); // Re-render tasks to show new linked design
 
         } catch (error: any) {
             console.error("Error saving design:", error);
@@ -1018,12 +1099,10 @@ document.addEventListener('DOMContentLoaded', () => {
             } else {
                 showNotification(`An error occurred while saving: ${error.message}`, "error");
             }
-            // Re-enable button on failure
-            button.textContent = 'Save';
-            (button as HTMLButtonElement).disabled = false;
+        } finally {
+            closeLinkDesignModal();
         }
     }
-
 
     // --- Auth, Profile & Admin Functions ---
 
@@ -1157,11 +1236,13 @@ document.addEventListener('DOMContentLoaded', () => {
         saveCurrentUserState();
         updateAuthStateUI();
         closeProfileModal();
-        // Clear and hide the user's creations gallery
+        // Clear and hide all user-specific sections
         myCreationsGrid.innerHTML = '';
         myCreationsSection.style.display = 'none';
         myPostsGrid.innerHTML = '';
         myPostsSection.style.display = 'none';
+        myTasksGrid.innerHTML = '';
+        myTasksSection.style.display = 'none';
         showNotification("You have been logged out.", "success");
     }
     
@@ -1210,7 +1291,7 @@ document.addEventListener('DOMContentLoaded', () => {
         myCreationsGrid.innerHTML = ''; // Clear existing content
 
         if (creations.length === 0) {
-            myCreationsGrid.innerHTML = `<p class="empty-gallery-message">You haven't saved any creations yet. Generate designs and click 'Save to My Creations' to start your collection!</p>`;
+            myCreationsGrid.innerHTML = `<p class="empty-gallery-message">You haven't saved any creations yet. Generate designs and click 'Save' to start your collection!</p>`;
             return;
         }
 
@@ -1750,7 +1831,7 @@ document.addEventListener('DOMContentLoaded', () => {
             case 'facebook':
                 return `<svg class="platform-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><path d="M22 12c0-5.523-4.477-10-10-10S2 6.477 2 12c0 4.991 3.657 9.128 8.438 9.878V14.89h-2.87v-2.782h2.87V9.64c0-2.858 1.708-4.44 4.316-4.44 1.235 0 2.502.224 2.502.224v2.485h-1.313c-1.428 0-1.884.89-1.884 1.815v2.109h3.28l-.523 2.782h-2.757v7.008C18.343 21.128 22 16.991 22 12z"/></svg>`;
             case 'instagram':
-                return `<svg class="platform-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2c-2.717 0-3.056.01-4.122.06-1.065.05-1.79.217-2.428.465a4.902 4.902 0 0 0-1.772 1.153 4.902 4.902 0 0 0-1.153 1.772c-.248.638-.415 1.363-.465 2.428C2.01 8.944 2 9.283 2 12s.01 3.056.06 4.122c.05 1.065.217 1.79.465 2.428a4.902 4.902 0 0 0 1.153 1.772 4.902 4.902 0 0 0 1.772 1.153c.638.248 1.363.415 2.428.465C8.944 21.99 9.283 22 12 22s3.056-.01 4.122-.06c1.065-.05 1.79-.217 2.428-.465a4.902 4.902 0 0 0 1.772-1.153 4.902 4.902 0 0 0 1.153-1.772c.248-.638.415-1.363-.465-2.428C21.99 15.056 22 14.717 22 12s-.01-3.056-.06-4.122c-.05-1.065-.217-1.79-.465-2.428a4.902 4.902 0 0 0-1.153-1.772 4.902 4.902 0 0 0-1.772-1.153c-.638-.248-1.363-.415-2.428-.465C15.056 2.01 14.717 2 12 2zm0 1.802c2.67 0 2.987.01 4.042.059.975.044 1.504.207 1.857.344.467.182.86.399 1.25.789.39.39.607.783.789 1.25.137.353.3.882.344 1.857.049 1.055.059 1.372.059 4.042s-.01 2.987-.059 4.042c-.044.975-.207 1.504-.344 1.857a3.097 3.097 0 0 1-.789 1.25 3.097 3.097 0 0 1-1.25.789c-.353.137-.882.3-1.857.344-1.055.049-1.372.059-4.042.059s-2.987-.01-4.042-.059c-.975-.044-1.504-.207-1.857-.344a3.097 3.097 0 0 1-1.25-.789 3.097 3.097 0 0 1-.789-1.25c-.137-.353-.3-.882-.344-1.857C3.81 15.056 3.802 14.717 3.802 12s.01-2.987.059-4.042c.044-.975.207-1.504.344-1.857.182-.467.399-.86.789-1.25.39-.39.783-.607 1.25-.789.353-.137.882-.3 1.857-.344C9.013 3.81 9.33 3.802 12 3.802zM12 7.25a4.75 4.75 0 1 0 0 9.5 4.75 4.75 0 0 0 0-9.5zM12 15a3 3 0 1 1 0-6 3 3 0 0 1 0 6zm6.5-7.75a1.25 1.25 0 1 0 0-2.5 1.25 1.25 0 0 0 0 2.5z"/></svg>`;
+                return `<svg class="platform-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2c-2.717 0-3.056.01-4.122.06-1.065.05-1.79.217-2.428.465a4.902 4.902 0 0 0-1.772 1.153 4.902 4.902 0 0 0-1.153 1.772c-.248.638-.415 1.363-.465 2.428C2.01 8.944 2 9.283 2 12s.01 3.056.06 4.122c.05 1.065.217 1.79.465 2.428a4.902 4.902 0 0 0 1.153 1.772 4.902 4.902 0 0 0 1.772 1.153c.638.248 1.363.415 2.428.465C8.944 21.99 9.283 22 12 22s3.056-.01 4.122-.06c1.065-.05 1.79-.217 2.428-.465a4.902 4.902 0 0 0 1.772-1.153 4.902 4.902 0 0 0 1.153-1.772c.248-.638-.415-1.363-.465-2.428C21.99 15.056 22 14.717 22 12s-.01-3.056-.06-4.122c-.05-1.065-.217-1.79-.465-2.428a4.902 4.902 0 0 0-1.153-1.772 4.902 4.902 0 0 0-1.772-1.153c-.638-.248-1.363-.415-2.428-.465C15.056 2.01 14.717 2 12 2zm0 1.802c2.67 0 2.987.01 4.042.059.975.044 1.504.207 1.857.344.467.182.86.399 1.25.789.39.39.607.783.789 1.25.137.353.3.882.344 1.857.049 1.055.059 1.372.059 4.042s-.01 2.987-.059 4.042c-.044.975-.207 1.504-.344 1.857a3.097 3.097 0 0 1-.789 1.25 3.097 3.097 0 0 1-1.25.789c-.353.137-.882.3-1.857.344-1.055.049-1.372.059-4.042.059s-2.987-.01-4.042-.059c-.975-.044-1.504-.207-1.857-.344a3.097 3.097 0 0 1-1.25-.789 3.097 3.097 0 0 1-.789-1.25c-.137-.353-.3-.882-.344-1.857C3.81 15.056 3.802 14.717 3.802 12s.01-2.987.059-4.042c.044-.975.207-1.504.344-1.857.182-.467.399-.86.789-1.25.39-.39.783-.607 1.25-.789.353-.137.882-.3 1.857-.344C9.013 3.81 9.33 3.802 12 3.802zM12 7.25a4.75 4.75 0 1 0 0 9.5 4.75 4.75 0 0 0 0-9.5zM12 15a3 3 0 1 1 0-6 3 3 0 0 1 0 6zm6.5-7.75a1.25 1.25 0 1 0 0-2.5 1.25 1.25 0 0 0 0 2.5z"/></svg>`;
             case 'linkedin':
                 return `<svg class="platform-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><path d="M19 0h-14c-2.761 0-5 2.239-5 5v14c0 2.761 2.239 5 5 5h14c2.762 0 5-2.239 5-5v-14c0-2.761-2.238-5-5-5zm-11 19h-3v-11h3v11zm-1.5-12.268c-.966 0-1.75-.79-1.75-1.764s.784-1.764 1.75-1.764 1.75.79 1.75 1.764-.783 1.764-1.75 1.764zm13.5 12.268h-3v-5.604c0-3.368-4-3.113-4 0v5.604h-3v-11h3v1.765c1.396-2.586 7-2.777 7 2.476v6.759z"/></svg>`;
             default:
@@ -1866,6 +1947,160 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    // --- My Tasks Functions ---
+
+    /**
+     * Renders the user's tasks from local storage.
+     */
+    function renderMyTasks() {
+        if (!currentUser) {
+            myTasksSection.style.display = 'none';
+            return;
+        }
+
+        myTasksSection.style.display = 'block';
+        const userTasksKey = `gemvision_tasks_${currentUser.email}`;
+        const tasks: Task[] = JSON.parse(localStorage.getItem(userTasksKey) || '[]');
+        const userCreationsKey = `gemvision_creations_${currentUser.email}`;
+        const creations: ShowcaseItem[] = JSON.parse(localStorage.getItem(userCreationsKey) || '[]');
+        
+        myTasksGrid.innerHTML = '';
+        if (tasks.length === 0) {
+            myTasksGrid.innerHTML = `<p class="empty-gallery-message">You have no tasks. Click 'Create New Task' to get started!</p>`;
+            return;
+        }
+
+        tasks.forEach(task => {
+            const card = document.createElement('article');
+            card.className = 'task-card';
+            card.dataset.taskId = task.id;
+            card.dataset.status = task.status;
+            
+            const linkedDesignsHtml = task.linkedDesignIds.map(designId => {
+                const design = creations.find(c => c.id === designId);
+                return design ? `<img src="${design.designImage}" alt="${design.name}" class="linked-design-item" data-design-id="${designId}">` : '';
+            }).join('');
+
+            card.innerHTML = `
+                <div class="task-header">
+                    <h3>${task.title}</h3>
+                    <select class="task-status-select" data-status="${task.status}">
+                        <option value="in-progress" ${task.status === 'in-progress' ? 'selected' : ''}>In Progress</option>
+                        <option value="completed" ${task.status === 'completed' ? 'selected' : ''}>Completed</option>
+                        <option value="on-hold" ${task.status === 'on-hold' ? 'selected' : ''}>On Hold</option>
+                    </select>
+                </div>
+                ${task.dueDate ? `<p class="due-date">Due: ${new Date(task.dueDate).toLocaleDateString()}</p>` : ''}
+                <p class="description">${task.description || 'No description.'}</p>
+                <div class="linked-designs">
+                    <h4>Linked Designs</h4>
+                    <div class="linked-designs-list">
+                        ${linkedDesignsHtml || '<p class="empty-gallery-message" style="font-size: 0.8rem; padding: 0.5rem;">No designs linked yet.</p>'}
+                    </div>
+                </div>
+                <div class="task-actions">
+                    <button class="task-action-btn edit">Edit</button>
+                    <button class="task-action-btn delete">Delete</button>
+                </div>
+            `;
+            myTasksGrid.appendChild(card);
+        });
+    }
+
+    /**
+     * Opens the task creation/editing modal.
+     * @param task Optional task object to populate the form for editing.
+     */
+    function openTaskModal(task?: Task) {
+        if (task) {
+            editingTaskId = task.id;
+            taskModalTitle.textContent = 'Edit Task';
+            taskTitleInput.value = task.title;
+            taskDescriptionInput.value = task.description;
+            taskDueDateInput.value = task.dueDate;
+            taskStatusSelect.value = task.status;
+        } else {
+            editingTaskId = null;
+            taskModalTitle.textContent = 'Create New Task';
+            taskForm.reset();
+        }
+        taskModal.style.display = 'flex';
+    }
+
+    function closeTaskModal() {
+        taskModal.style.display = 'none';
+        editingTaskId = null;
+    }
+
+    /**
+     * Handles the submission of the task form for creating or updating a task.
+     * @param event The form submission event.
+     */
+    function handleSaveTask(event: Event) {
+        event.preventDefault();
+        if (!currentUser) return;
+
+        const userTasksKey = `gemvision_tasks_${currentUser.email}`;
+        let tasks: Task[] = JSON.parse(localStorage.getItem(userTasksKey) || '[]');
+
+        const taskData = {
+            title: taskTitleInput.value,
+            description: taskDescriptionInput.value,
+            dueDate: taskDueDateInput.value,
+            status: taskStatusSelect.value as TaskStatus,
+        };
+
+        if (editingTaskId) { // Updating existing task
+            const taskIndex = tasks.findIndex(t => t.id === editingTaskId);
+            if (taskIndex > -1) {
+                tasks[taskIndex] = { ...tasks[taskIndex], ...taskData };
+            }
+        } else { // Creating new task
+            const newTask: Task = {
+                id: `task-${Date.now()}`,
+                ...taskData,
+                linkedDesignIds: [],
+            };
+            tasks.unshift(newTask);
+        }
+
+        localStorage.setItem(userTasksKey, JSON.stringify(tasks));
+        renderMyTasks();
+        closeTaskModal();
+    }
+    
+    /**
+     * Deletes a task from storage.
+     * @param taskId The ID of the task to delete.
+     */
+    function handleDeleteTask(taskId: string) {
+        if (!currentUser || !confirm('Are you sure you want to delete this task?')) return;
+
+        const userTasksKey = `gemvision_tasks_${currentUser.email}`;
+        let tasks: Task[] = JSON.parse(localStorage.getItem(userTasksKey) || '[]');
+        tasks = tasks.filter(t => t.id !== taskId);
+        localStorage.setItem(userTasksKey, JSON.stringify(tasks));
+        renderMyTasks();
+        showNotification("Task deleted.", "success");
+    }
+    
+    /**
+     * Updates the status of a task directly from its card.
+     * @param taskId The ID of the task.
+     * @param newStatus The new status.
+     */
+    function handleTaskStatusChange(taskId: string, newStatus: TaskStatus) {
+        if (!currentUser) return;
+        const userTasksKey = `gemvision_tasks_${currentUser.email}`;
+        let tasks: Task[] = JSON.parse(localStorage.getItem(userTasksKey) || '[]');
+        const taskIndex = tasks.findIndex(t => t.id === taskId);
+        if (taskIndex > -1) {
+            tasks[taskIndex].status = newStatus;
+            localStorage.setItem(userTasksKey, JSON.stringify(tasks));
+            renderMyTasks(); // Re-render to update the card's style
+        }
+    }
+
 
     // --- AI Helper Chat Functions ---
 
@@ -1956,7 +2191,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 *   **File Uploads:** Supports all common image formats (JPG, PNG) and video formats (MP4).
                 *   **Camera Input:** Users can click the camera icon to use their device's camera to take a photo of their gem directly.
                 *   **3D Viewer:** On each generated design card, there is a "View in 3D" button. Clicking this transforms the image into an interactive 3D model that the user can rotate and zoom to inspect from all angles.
-                *   **Saving Designs:** Logged-in users can click the "Save" button on any design card. This adds the design to their personal "My Saved Creations" gallery, accessible from the main page when they are logged in.
+                *   **Saving Designs & Task Management:**
+                    *   Logged-in users can click the "Save" button on any design card. This opens a modal.
+                    *   From the modal, they can save the design to their "My Saved Creations" gallery.
+                    *   Crucially, they can also link this saved design to a specific project or task. They can select an existing task from a dropdown or create a new one right from the save modal.
+                    *   The "My Tasks" section allows users to manage these projects, view linked designs, update statuses, and set due dates.
                 *   **Sharing & Social Media:**
                     *   Clicking the "Share" button opens a special modal.
                     *   Inside the modal, the AI can generate tailored captions for different social media platforms (X, Facebook, Instagram, LinkedIn).
@@ -2056,7 +2295,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (designCard) {
             // Handle Save Design
             if (target.classList.contains('save-design-btn') && designCard.classList.contains('design-card')) {
-                handleSaveDesign(target);
+                openLinkDesignModal(target);
                 return;
             }
              // Handle Share Design
@@ -2210,6 +2449,7 @@ document.addEventListener('DOMContentLoaded', () => {
         updateAuthStateUI();
         renderMyCreationsGallery();
         renderMySocialPosts();
+        renderMyTasks();
         closeAuthModal();
         showNotification("Account created successfully! You can now start designing.", "success");
     });
@@ -2232,6 +2472,7 @@ document.addEventListener('DOMContentLoaded', () => {
             showNotification('Welcome, Administrator!', 'success');
             renderMyCreationsGallery();
             renderMySocialPosts();
+            renderMyTasks();
             return;
         }
         
@@ -2248,6 +2489,7 @@ document.addEventListener('DOMContentLoaded', () => {
             showNotification('Welcome, Tester! You have unlimited attempts.', 'success');
             renderMyCreationsGallery();
             renderMySocialPosts();
+            renderMyTasks();
             return;
         }
 
@@ -2266,6 +2508,7 @@ document.addEventListener('DOMContentLoaded', () => {
              updateAuthStateUI();
              renderMyCreationsGallery();
              renderMySocialPosts();
+             renderMyTasks();
              closeAuthModal();
              showNotification(`Welcome back, ${email}!`, 'success');
         } else {
@@ -2397,6 +2640,65 @@ document.addEventListener('DOMContentLoaded', () => {
     });
     chatForm.addEventListener('submit', handleSendMessage);
 
+    // Task Listeners
+    createNewTaskBtn.addEventListener('click', () => openTaskModal());
+    taskCloseBtn.addEventListener('click', closeTaskModal);
+    taskModal.addEventListener('click', (e) => {
+        if (e.target === taskModal) closeTaskModal();
+    });
+    taskForm.addEventListener('submit', handleSaveTask);
+
+    myTasksGrid.addEventListener('click', (e) => {
+        const target = e.target as HTMLElement;
+        const card = target.closest('.task-card') as HTMLElement;
+        if (!card) return;
+
+        const taskId = card.dataset.taskId;
+        if (!taskId) return;
+
+        if (target.classList.contains('edit')) {
+            const userTasksKey = `gemvision_tasks_${currentUser!.email}`;
+            const tasks: Task[] = JSON.parse(localStorage.getItem(userTasksKey) || '[]');
+            const taskToEdit = tasks.find(t => t.id === taskId);
+            if (taskToEdit) openTaskModal(taskToEdit);
+        } else if (target.classList.contains('delete')) {
+            handleDeleteTask(taskId);
+        }
+    });
+    
+    myTasksGrid.addEventListener('change', (e) => {
+        const target = e.target as HTMLSelectElement;
+        if (target.classList.contains('task-status-select')) {
+            const card = target.closest('.task-card') as HTMLElement;
+            const taskId = card?.dataset.taskId;
+            if (taskId) {
+                handleTaskStatusChange(taskId, target.value as TaskStatus);
+            }
+        }
+    });
+    
+    // Link Design Modal Listeners
+    linkDesignCloseBtn.addEventListener('click', closeLinkDesignModal);
+    linkDesignModal.addEventListener('click', (e) => {
+        if (e.target === linkDesignModal) closeLinkDesignModal();
+    });
+    saveWithoutLinkBtn.addEventListener('click', () => saveAndLinkDesign());
+    confirmLinkBtn.addEventListener('click', () => {
+        const selectedTaskId = linkTaskSelect.value;
+        if (selectedTaskId) {
+            saveAndLinkDesign(selectedTaskId);
+        } else {
+            showNotification("Please select a task to link.", "error");
+        }
+    });
+    createTaskForDesignBtn.addEventListener('click', () => {
+        closeLinkDesignModal();
+        openTaskModal(); 
+        // A more advanced implementation could re-open the link modal after task creation.
+        // For now, the user can save the design again to link it.
+        showNotification("Create your new task, then you can save and link your design to it.", "success", 6000);
+    });
+
 
 
     // --- Initial State ---
@@ -2433,6 +2735,7 @@ document.addEventListener('DOMContentLoaded', () => {
         renderShowcaseGallery();
         renderMyCreationsGallery();
         renderMySocialPosts();
+        renderMyTasks();
         initializeAiHelper(); // Set up the AI chat agent
         dreamBtn.disabled = true;
         analyzeGemstoneBtn.disabled = true;
