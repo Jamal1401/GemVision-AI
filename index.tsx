@@ -631,32 +631,47 @@ document.addEventListener('DOMContentLoaded', () => {
                     data: uploadedFile.base64,
                 },
             };
-
+            
+            const gemType = gemTypeInput.value;
+            const gemWeight = gemWeightInput.value;
             const length = gemLengthInput.value;
             const breadth = gemBreadthInput.value;
             const depth = gemDepthInput.value;
+
             const dimensionsProvided = length && breadth && depth;
+            const typeProvided = gemType.trim() !== '';
+            const weightProvided = gemWeight.trim() !== '';
 
             const prompt = `
-                You are a professional gemologist AI. Analyze the provided gemstone image and user-provided information.
+                You are a professional gemologist AI. Your task is to provide a detailed analysis of a gemstone based on an image and user-provided information. Prioritize user-provided information as factual.
 
-                **User Input:**
-                - Dimensions (L x B x D in mm): ${dimensionsProvided ? `${length} x ${breadth} x ${depth}`: 'Not provided. Analysis is based on the image only.'}
+                **User Input (Consider these as facts):**
+                - Gemstone Type & Features: ${typeProvided ? gemType : 'Not provided. Please identify from image.'}
+                - Estimated Carat Weight: ${weightProvided ? gemWeight : 'Not provided. Please estimate from image and dimensions.'}
+                - Dimensions (L x B x D in mm): ${dimensionsProvided ? `${length} x ${breadth} x ${depth}`: 'Not provided. Analysis will be based on the image only.'}
 
                 **Your Task:**
-                1.  **Identification:** Provide a single line at the very top with the identified gemstone and its estimated carat weight. Format it EXACTLY like this: \`Identification: [Gemstone Type and Cut], [Estimated Carat Weight]\`. For example: \`Identification: Vibrant red ruby, oval cut, approximately 2 carats\`.
-                2.  **Cut Quality Analysis:** Based on the image, analyze the cut quality. Specifically comment on:
-                    - **Symmetry and Proportions:** How well-balanced is the cut from what you can see?
+
+                1.  **Identification Line:** Provide a single line at the very top summarizing the gemstone.
+                    - If user provided "Gemstone Type" and "Carat Weight", use their input directly. Format: \`Identification: [User's Gemstone Type], [User's Carat Weight]\`.
+                    - If the user provided only one, use it and estimate the other.
+                    - If the user provided neither, identify the gem and estimate the weight from the image. Format: \`Identification: [Identified Gemstone Type and Cut], approximately [Estimated Carat Weight]\`.
+                    - **This line is for display and should be consistent with the user's input if provided.**
+
+                2.  **Cut Quality Analysis:** Based *only* on the image, analyze the cut quality. Disregard user input for this section. Comment on:
+                    - **Symmetry and Proportions:** How well-balanced does the cut appear visually?
                     - **Windows and Extinction:** Are there visible "windows" (transparent, washed-out areas) or significant "extinction" (dark areas from light leakage)?
-                3.  **Proportion Assessment ${dimensionsProvided ? '(Based on provided dimensions)' : '(Dimensions not provided)'}:**
-                    ${dimensionsProvided ?
-                    `- Analyze the provided dimensions. Calculate the depth-to-width (depth/breadth) percentage. Provide an opinion on whether it's well-proportioned. A good range for many cuts is 60-80% of the width. State if the stone seems too shallow (risk of windowing) or too deep (loses sparkle).`
-                    : '- To get a proportion assessment, please provide the length, breadth, and depth dimensions.'
+
+                3.  **Proportion Assessment:**
+                    - ${dimensionsProvided ?
+                    `Based on the provided dimensions (${length} x ${breadth} x ${depth} mm), analyze the proportions. Calculate the depth-to-width (depth/breadth) percentage. Provide an opinion on whether it's well-proportioned for the identified/provided gemstone type. A good range for many cuts is 60-80% of the width. State if the stone seems too shallow (risk of windowing) or too deep (loses sparkle).`
+                    : 'Dimensions were not provided. To get a proportion assessment, please provide the length, breadth, and depth.'
                     }
+
                 4.  **Price Estimation:**
-                    - Use your web search capabilities to find the current market price for a similar polished gemstone.
+                    - Use your web search capabilities to find the current market price for a gemstone matching the **final identification** (user-provided or AI-identified).
                     - Provide an estimated price range (e.g., $500 - $700 per carat).
-                    - State that this is an estimate and prices vary based on many factors not visible in a photo.
+                    - Emphasize that this is an estimate and prices vary based on many factors not visible in a photo (clarity, origin, treatment, etc.).
 
                 **Output Format:**
                 Provide the response as clear, readable text. Use markdown-style bold headings for each section: **Cut Quality Analysis**, **Proportion Assessment**, and **Price Estimation**. The \`Identification:\` line must be the very first thing in your response.`;
@@ -674,6 +689,9 @@ document.addEventListener('DOMContentLoaded', () => {
             const lines = fullText.split('\n');
             const identificationLine = lines.find(line => line.startsWith('Identification:'));
             
+            // This part is now smarter. If the user provided info, the AI was told to use it,
+            // so the Identification line will contain it, and this code will just re-populate the fields,
+            // which is good for consistency. If the AI generated it, it populates the fields for the first time.
             if (identificationLine) {
                 const parts = identificationLine.replace('Identification:', '').trim().split(',');
                 if (parts.length >= 2) {
