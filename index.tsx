@@ -643,38 +643,42 @@ document.addEventListener('DOMContentLoaded', () => {
             const weightProvided = gemWeight.trim() !== '';
 
             const prompt = `
-                You are a professional gemologist AI. Your task is to provide a detailed analysis of a gemstone based on an image and user-provided information. Prioritize user-provided information as factual.
+                You are a professional gemologist AI. Your task is to provide a detailed analysis of a gemstone based on an image and user-provided information, incorporating principles from the Gemological Institute of America (GIA). Prioritize user-provided information as factual.
 
                 **User Input (Consider these as facts):**
                 - Gemstone Type & Features: ${typeProvided ? gemType : 'Not provided. Please identify from image.'}
                 - Estimated Carat Weight: ${weightProvided ? gemWeight : 'Not provided. Please estimate from image and dimensions.'}
-                - Dimensions (L x B x D in mm): ${dimensionsProvided ? `${length} x ${breadth} x ${depth}`: 'Not provided. Analysis will be based on the image only.'}
+                - Dimensions (L x B x D in mm): ${dimensionsProvided ? `${length} x ${breadth} x ${depth}` : 'Not provided. Analysis will be based on the image only.'}
 
                 **Your Task:**
 
                 1.  **Identification Line:** Provide a single line at the very top summarizing the gemstone.
                     - If user provided "Gemstone Type" and "Carat Weight", use their input directly. Format: \`Identification: [User's Gemstone Type], [User's Carat Weight]\`.
                     - If the user provided only one, use it and estimate the other.
-                    - If the user provided neither, identify the gem and estimate the weight from the image. Format: \`Identification: [Identified Gemstone Type and Cut], approximately [Estimated Carat Weight]\`.
+                    - If the user provided neither, identify the gem and estimate the weight from the image. Format: \`Identification: [Identified Gemstone Type], approximately [Estimated Carat Weight]\`.
                     - **This line is for display and should be consistent with the user's input if provided.**
 
-                2.  **Cut Quality Analysis:** Based *only* on the image, analyze the cut quality. Disregard user input for this section. Comment on:
-                    - **Symmetry and Proportions:** How well-balanced does the cut appear visually?
-                    - **Windows and Extinction:** Are there visible "windows" (transparent, washed-out areas) or significant "extinction" (dark areas from light leakage)?
+                2.  **Overall Cut Analysis:** Based *only* on the image, provide a comprehensive analysis of the gem's cut, drawing on GIA concepts.
+                    - **Cutting Style & Shape:** Identify the cutting style (e.g., Brilliant, Step, Mixed, Cabochon) and the gem's outline or shape (e.g., Oval, Pear, Cushion). Comment on the shape's appeal.
+                    - **Light Performance:** Evaluate how the cut interacts with light. Specifically comment on its **Brilliance** (the amount of light returned, creating sparkle), any visible **Windowing** (washed-out areas where light leaks through), and **Extinction** (dark areas where light does not return).
+                    - **Craftsmanship:** Assess the visual quality of the cut. Comment on the **Symmetry** (the alignment and balance of facets) and the **Polish** (the smoothness and luster of the surfaces).
 
-                3.  **Proportion Assessment:**
+                3.  **Color Assessment:** Based on the image, analyze the gemstone's color.
+                    - **Hue, Tone, and Saturation:** Describe the primary color (hue). Analyze its **Tone** (lightness or darkness) and **Saturation** (intensity or purity). Is the color vivid and strong, or grayish and muted? Comment on whether the tone is too dark (obscuring color) or too light (making it look washed out).
+
+                4.  **Proportion Assessment:**
                     - ${dimensionsProvided ?
-                    `Based on the provided dimensions (${length} x ${breadth} x ${depth} mm), analyze the proportions. Calculate the depth-to-width (depth/breadth) percentage. Provide an opinion on whether it's well-proportioned for the identified/provided gemstone type. A good range for many cuts is 60-80% of the width. State if the stone seems too shallow (risk of windowing) or too deep (loses sparkle).`
+                    `Based on the provided dimensions (${length} x ${breadth} x ${depth} mm), analyze the proportions. Calculate the depth-to-width (depth/breadth) percentage. Provide an opinion on whether it's well-proportioned for the identified/provided gemstone type. A good range for many cuts is 60-80% of the width. State if the stone seems too shallow (risk of windowing) or too deep (loses sparkle and may look smaller for its weight).`
                     : 'Dimensions were not provided. To get a proportion assessment, please provide the length, breadth, and depth.'
-                    }
+                }
 
-                4.  **Price Estimation:**
-                    - Use your web search capabilities to find the current market price for a gemstone matching the **final identification** (user-provided or AI-identified).
+                5.  **Price Estimation:**
+                    - Use your web search capabilities to find the current market price for a gemstone matching the **final identification** (user-provided or AI-identified) and considering the visual analysis of its cut and color.
                     - Provide an estimated price range (e.g., $500 - $700 per carat).
-                    - Emphasize that this is an estimate and prices vary based on many factors not visible in a photo (clarity, origin, treatment, etc.).
+                    - Emphasize that this is an estimate. Real-world prices vary greatly based on factors impossible to determine from a photo, such as **Clarity** (internal inclusions/blemishes), **Treatments** (e.g., heat treatment), and **Origin**. A physical evaluation by a qualified gemologist is required for a formal appraisal.
 
                 **Output Format:**
-                Provide the response as clear, readable text. Use markdown-style bold headings for each section: **Cut Quality Analysis**, **Proportion Assessment**, and **Price Estimation**. The \`Identification:\` line must be the very first thing in your response.`;
+                Provide the response as clear, readable text. Use markdown-style bold headings for each section: **Overall Cut Analysis**, **Color Assessment**, **Proportion Assessment**, and **Price Estimation**. The \`Identification:\` line must be the very first thing in your response.`;
 
 
             const response = await ai.models.generateContent({
