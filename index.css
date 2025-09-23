@@ -241,6 +241,22 @@ main {
     margin-bottom: 0.5rem;
     font-weight: 600;
     color: var(--text-color);
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.suggestion-status {
+    font-size: 0.8rem;
+    font-style: italic;
+    color: var(--text-secondary-color);
+    animation: pulse 1.5s infinite ease-in-out;
+}
+
+@keyframes pulse {
+    0% { opacity: 0.7; }
+    50% { opacity: 1; }
+    100% { opacity: 0.7; }
 }
 
 .label-with-action {
@@ -265,6 +281,12 @@ main {
     background-color: var(--primary-color);
     color: var(--text-color);
 }
+.input-group select:disabled {
+    background-color: var(--secondary-color);
+    opacity: 0.7;
+    cursor: not-allowed;
+}
+
 
 .input-group input:focus, .input-group textarea:focus, .input-group select:focus {
     outline: none;
@@ -277,6 +299,7 @@ main {
     flex-direction: row;
     align-items: center;
     gap: 1rem;
+    position: relative;
 }
 
 input[type="file"] {
@@ -291,15 +314,22 @@ input[type="file"] {
     transition: var(--transition-fast);
     flex-grow: 1;
     text-align: center;
-    border: 1px dashed var(--trust-accent-color);
+    border: 1px solid var(--trust-accent-color);
     color: var(--text-secondary-color);
 }
 
 .file-upload-label:hover {
-    background-color: #000;
+    background-color: var(--secondary-color);
     border-color: var(--accent-color);
     color: var(--text-color);
 }
+
+.secondary-file-input .file-upload-label {
+    border-style: dashed;
+    font-size: 0.9rem;
+    padding: 0.6rem 1rem;
+}
+
 
 .camera-btn {
     background: none;
@@ -337,7 +367,7 @@ input[type="file"] {
     border: 2px solid var(--trust-accent-color);
 }
 
-#remove-image-btn {
+.remove-btn {
     position: absolute;
     top: -10px;
     right: -10px;
@@ -353,12 +383,18 @@ input[type="file"] {
     align-items: center;
     justify-content: center;
     transition: var(--transition-fast);
+    z-index: 5;
 }
 
-#remove-image-btn:hover {
+.remove-btn:hover {
     transform: scale(1.1);
     background-color: var(--error-color);
     color: white;
+}
+.secondary-file-input .remove-btn {
+    right: 0;
+    top: 50%;
+    transform: translateY(-50%);
 }
 
 .video-preview-container {
@@ -508,6 +544,50 @@ input[type="file"] {
     color: var(--accent-color);
     text-decoration: underline;
 }
+
+/* --- Valuation Table Styles --- */
+.valuation-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 1.5rem;
+    font-size: 0.9rem;
+}
+
+.valuation-table th,
+.valuation-table td {
+    padding: 0.75rem;
+    text-align: left;
+    border-bottom: 1px solid var(--secondary-color);
+}
+
+.valuation-table th {
+    background-color: var(--secondary-color);
+    font-weight: 600;
+    color: var(--text-color);
+}
+
+.valuation-table td {
+    color: var(--text-secondary-color);
+}
+
+.valuation-table .text-right {
+    text-align: right;
+}
+
+.valuation-table tfoot td {
+    font-weight: 600;
+    color: var(--text-color);
+    border-top: 2px solid var(--trust-accent-color);
+}
+
+.valuation-disclaimer {
+    font-size: 0.8rem;
+    text-align: center;
+    color: var(--text-secondary-color);
+    margin-top: 1.5rem;
+    font-style: italic;
+}
+
 
 
 /* Why Us Section */

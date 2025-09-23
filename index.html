@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>GemVision AI - Weave Your Dream Jewelry</title>
+    <title>GemVision AI - Rough Stone Valuation</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;600;700&family=Poppins:wght@300;400;600&display=swap" rel="stylesheet">
@@ -15,7 +15,8 @@
     "@google/genai": "https://esm.sh/@google/genai@^0.12.0",
     "three": "https://esm.sh/three@^0.164.0",
     "three/addons/": "https://esm.sh/three@^0.164.0/examples/jsm/",
-    "three/": "https://aistudiocdn.com/three@^0.179.1/"
+    "three/": "https://aistudiocdn.com/three@^0.179.1/",
+    "xlsx": "https://esm.sh/xlsx@^0.18.5"
   }
 }
 </script>
@@ -32,8 +33,7 @@
                 <h1>GemVision AI</h1>
             </div>
             <nav>
-                <a href="#showcase-gallery">Gallery</a>
-                <a href="#my-tasks-section">My Tasks</a>
+                <a href="#generator">Valuation Tool</a>
                 <a href="#pricing-section">Pricing</a>
                 <div id="nav-user-profile" style="display: none;">
                     <img id="nav-profile-picture" src="#" alt="Profile Picture">
@@ -44,72 +44,164 @@
 
         <main>
             <section class="hero">
-                <h2>Weave Your Dream Jewelry</h2>
-                <p>Upload a photo of your gemstone and let our AI envision the perfect design. From classic elegance to modern artistry, discover the possibilities.</p>
+                <h2>AI-Powered Rough Diamond Valuation</h2>
+                <p>Upload a photo of your rough diamond, gemstone, or parcel. Provide its details and get an instant, AI-driven market valuation.</p>
             </section>
 
             <section id="generator" class="generator-section">
                 <div id="generator-gate" class="generator-gate">
-                    <h3>Create an account to start designing</h3>
-                    <p>Sign up for a free account to get 3 design generations and see the magic for yourself.</p>
+                    <h3>Create an account to start valuing</h3>
+                    <p>Sign up for a free account to get 3 free valuations and see the magic for yourself.</p>
                     <button id="gate-signup-btn" class="generate-button">Sign Up for Free</button>
                 </div>
                 <div class="form-container">
-                    <h3>Create Your Design</h3>
+                    <h3>Analyze Your Rough Stone</h3>
                     <div class="input-group file-input-group">
-                         <label for="file-upload" class="file-upload-label has-tooltip" data-tooltip="Click to upload a photo or short video of your gemstone.">
+                         <label for="file-upload" class="file-upload-label has-tooltip" data-tooltip="Click to upload a photo or short video of your rough stone or parcel.">
                             <span id="file-name">Upload Photo or Video</span>
                         </label>
                         <input type="file" id="file-upload" accept="image/*,video/*" aria-label="Upload gemstone photo or video">
-                        <button id="camera-button" class="camera-btn has-tooltip" aria-label="Use Camera" data-tooltip="Use your device's camera to take a photo of your gemstone.">
+                        <button id="camera-button" class="camera-btn has-tooltip" aria-label="Use Camera" data-tooltip="Use your device's camera to take a photo of your stone.">
                             <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path><circle cx="12" cy="13" r="4"></circle></svg>
                         </button>
                     </div>
                      <div id="image-preview-container" class="image-preview-container" style="display: none;">
                         <img id="image-preview" src="#" alt="Image preview" />
-                        <button id="remove-image-btn" aria-label="Remove image">&times;</button>
+                        <button id="remove-image-btn" class="remove-btn" aria-label="Remove image">&times;</button>
                     </div>
                     <div id="video-preview-container" class="video-preview-container" style="display: none;">
                         <video id="video-preview" controls></video>
                         <button id="capture-frame-btn" class="generate-button">Capture Frame for Analysis</button>
                     </div>
-                    <div id="analysis-results-container" class="analysis-results-container" style="display: none;">
-                        <h4>Gemstone Analysis Report</h4>
-                        <div id="analysis-content"></div>
-                        <div id="analysis-sources"></div>
+                    <div id="stone-analysis-container" class="analysis-results-container" style="display: none;">
+                        <h4>Initial Analysis</h4>
+                        <p><strong>Estimated Stone Count:</strong> <span id="stone-count">0</span></p>
+                    </div>
+
+                    <div id="valuation-results-container" class="analysis-results-container" style="display: none;">
+                        <h4>Valuation Report</h4>
+                        <div id="valuation-content"></div>
+                    </div>
+
+                    <div class="input-group">
+                        <label for="stone-description">Stone(s) Description</label>
+                        <input type="text" id="stone-description" class="has-tooltip" placeholder="e.g., Rough diamond parcel, octahedrons..." data-tooltip="Briefly describe the stones (e.g., 'Rough diamond parcel').">
                     </div>
                     <div class="input-group">
-                        <div class="label-with-action">
-                            <label for="gem-type">Gemstone Type & Features</label>
-                             <button id="analyze-gemstone-btn" class="smart-details-button has-tooltip" disabled data-tooltip="Let AI analyze your uploaded photo to perform a full gemological analysis, including price estimation.">🔮 Analyze Gemstone</button>
-                        </div>
-                        <input type="text" id="gem-type" class="has-tooltip" placeholder="e.g., Ruby, vibrant red, oval cut..." data-tooltip="Describe the gemstone's type, color, and cut (e.g., 'Vibrant red ruby, oval cut').">
+                         <label for="total-carat-weight">Total Carat Weight</label>
+                        <input type="number" id="total-carat-weight" class="has-tooltip" placeholder="e.g., 10.5" data-tooltip="Enter the total carat weight of all stones in the image.">
+                    </div>
+                     <div class="input-group">
+                        <label for="stone-size">Size</label>
+                        <select id="stone-size" class="has-tooltip" data-tooltip="Select the size classification for the stones.">
+                            <option value="">Select Size Classification...</option>
+                            <option value="Specials (+10.8 carats)">Specials (+10.8 carats)</option>
+                            <option value="+10 Carats (9.80 to 10.79 carats)">+10 Carats (9.80 to 10.79 carats)</option>
+                            <option value="+9 Carats (8.80 to 9.79 carats)">+9 Carats (8.80 to 9.79 carats)</option>
+                            <option value="+8 Carats (7.80 to 8.79 carats)">+8 Carats (7.80 to 8.79 carats)</option>
+                            <option value="+7 Carats (6.80 to 7.79 carats)">+7 Carats (6.80 to 7.79 carats)</option>
+                            <option value="+6 Carats (5.80 to 6.79 carats)">+6 Carats (5.80 to 6.79 carats)</option>
+                            <option value="+5 Carats (4.80 to 5.79 carats)">+5 Carats (4.80 to 5.79 carats)</option>
+                            <option value="+4 Carats (3.80 to 4.79 carats)">+4 Carats (3.80 to 4.79 carats)</option>
+                            <option value="+3 Carats (2.80 to 3.79 carats)">+3 Carats (2.80 to 3.79 carats)</option>
+                            <option value="10 Grainer (2.50 to 2.79 carats)">10 Grainer (2.50 to 2.79 carats)</option>
+                            <option value="8 Grainer (1.80 to 2.49 carats)">8 Grainer (1.80 to 2.49 carats)</option>
+                            <option value="6 Grainer (1.40 to 1.79 carats)">6 Grainer (1.40 to 1.79 carats)</option>
+                            <option value="5 Grainer (1.20 to 1.39 carats)">5 Grainer (1.20 to 1.39 carats)</option>
+                            <option value="4 Grainer (0.90 to 1.19 carats)">4 Grainer (0.90 to 1.19 carats)</option>
+                            <option value="3 Grainer (0.66 to 0.89 carats)">3 Grainer (0.66 to 0.89 carats)</option>
+                            <option value="+11 (0.30 to 0.65 carats)">+11 (0.30 to 0.65 carats)</option>
+                            <option value="+9 (0.13 to 0.29 carats)">+9 (0.13 to 0.29 carats)</option>
+                            <option value="+7 (0.09 to 0.12 carats)">+7 (0.09 to 0.12 carats)</option>
+                            <option value="+5 (0.05 to 0.08 carats)">+5 (0.05 to 0.08 carats)</option>
+                            <option value="+3 (0.03 to 0.04 carats)">+3 (0.03 to 0.04 carats)</option>
+                            <option value="+1 (0.01 to 0.02 carats)">+1 (0.01 to 0.02 carats)</option>
+                            <option value="-1 (< 0.01 carats)">-1 (&lt; 0.01 carats)</option>
+                        </select>
                     </div>
                     <div class="input-group">
-                         <label for="gem-weight">Estimated Carat Weight</label>
-                        <input type="text" id="gem-weight" class="has-tooltip" placeholder="e.g., 2 carats" data-tooltip="Enter the estimated weight of the gemstone in carats (e.g., '2 carats').">
-                    </div>
-                     <div class="input-group dimension-group">
-                        <label>Dimensions (mm) (Optional)</label>
-                        <div class="dimension-inputs">
-                            <input type="number" id="gem-length" placeholder="Length" aria-label="Gemstone length in millimeters">
-                            <input type="number" id="gem-breadth" placeholder="Breadth" aria-label="Gemstone breadth in millimeters">
-                            <input type="number" id="gem-depth" placeholder="Depth" aria-label="Gemstone depth in millimeters">
-                        </div>
+                        <label for="stone-model">
+                            Model / Shape 
+                            <span id="model-suggestion-status" class="suggestion-status"></span>
+                        </label>
+                        <select id="stone-model" class="has-tooltip" data-tooltip="Describe the model or shape of the rough stones.">
+                            <option value="">Select Model/Shape...</option>
+                            <option value="Crystals High">Crystals High</option>
+                            <option value="Crystals Low">Crystals Low</option>
+                            <option value="Sawable High">Sawable High</option>
+                            <option value="Sawable Low">Sawable Low</option>
+                            <option value="Makeable High">Makeable High</option>
+                            <option value="Makeable Low">Makeable Low</option>
+                            <option value="Brown Sawable">Brown Sawable</option>
+                        </select>
                     </div>
                     <div class="input-group">
-                        <div class="label-with-action">
-                           <label for="design-prompt">Weave Your Dream Design</label>
-                           <button id="dream-btn" class="dream-button has-tooltip" data-tooltip="Let AI generate a creative design prompt for you based on your gemstone photo.">✨ Let AI Dream</button>
-                        </div>
-                        <textarea id="design-prompt" class="has-tooltip" rows="5" placeholder="Describe your idea or click 'Let AI Dream' for inspiration..." data-tooltip="Describe the jewelry design you envision. Be as descriptive as you like!"></textarea>
+                        <label for="stone-quality">
+                            Quality / Clarity
+                            <span id="quality-suggestion-status" class="suggestion-status"></span>
+                        </label>
+                        <select id="stone-quality" class="has-tooltip" data-tooltip="Enter the quality or clarity grade.">
+                            <option value="">Select Quality/Clarity...</option>
+                            <option value="1Q (Clean)">1Q (Clean)</option>
+                            <option value="2Q (Small Inclusion)">2Q (Small Inclusion)</option>
+                            <option value="3Q (Included)">3Q (Included)</option>
+                            <option value="4Q (Heavily Included)">4Q (Heavily Included)</option>
+                            <option value="Spotted Sawable - 1Q">Spotted Sawable - 1Q</option>
+                            <option value="Spotted Sawable - 2Q">Spotted Sawable - 2Q</option>
+                            <option value="Clivage - 1Q">Clivage - 1Q</option>
+                            <option value="Clivage - 2Q">Clivage - 2Q</option>
+                            <option value="Clivage - 3Q">Clivage - 3Q</option>
+                            <option value="Rejections - 1Q">Rejections - 1Q</option>
+                            <option value="Rejections - 2Q">Rejections - 2Q</option>
+                            <option value="Rejections - 3Q">Rejections - 3Q</option>
+                            <option value="Rejections - 4Q">Rejections - 4Q</option>
+                            <option value="Rejections - Common">Rejections - Common</option>
+                            <option value="Boart - 1">Boart - 1</option>
+                            <option value="Boart - 2">Boart - 2</option>
+                        </select>
                     </div>
-                    <button id="generate-btn" class="generate-button has-tooltip" disabled data-tooltip="Generate unique jewelry designs based on your gemstone and prompt.">Generate Designs</button>
+                    <div class="input-group">
+                        <label for="stone-colour">Colour</label>
+                        <select id="stone-colour" class="has-tooltip" data-tooltip="Select the color grade of the stones.">
+                            <option value="">Select Colour...</option>
+                            <optgroup label="Standard Colors">
+                                <option value="D">D</option>
+                                <option value="E">E</option>
+                                <option value="F">F</option>
+                                <option value="G">G</option>
+                                <option value="H">H</option>
+                                <option value="I">I</option>
+                                <option value="J">J</option>
+                                <option value="K">K</option>
+                                <option value="L">L</option>
+                                <option value="M">M</option>
+                            </optgroup>
+                            <optgroup label="Brown Colors">
+                                <option value="1Col Brn (Top Top Light Brown)">1Col Brn (Top Top Light Brown)</option>
+                                <option value="2Col Brn (Top Light Brown)">2Col Brn (Top Light Brown)</option>
+                                <option value="3Col Brn (Light Brown)">3Col Brn (Light Brown)</option>
+                                <option value="4Col Brn (Dark Brown)">4Col Brn (Dark Brown)</option>
+                            </optgroup>
+                             <optgroup label="Other">
+                                <option value="Fancy">Fancy</option>
+                            </optgroup>
+                        </select>
+                    </div>
+                    
+                    <div class="input-group file-input-group secondary-file-input">
+                        <label for="price-book-upload" class="file-upload-label has-tooltip" data-tooltip="Optional: Upload your own price book (.csv, .xlsx) for more accurate valuations.">
+                            <span id="price-book-file-name">Upload Price Book (Optional)</span>
+                        </label>
+                        <input type="file" id="price-book-upload" accept=".csv, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet, application/vnd.ms-excel">
+                        <button id="remove-price-book-btn" class="remove-btn" style="display: none;" aria-label="Remove price book">&times;</button>
+                    </div>
+                    
+                    <button id="valuate-btn" class="generate-button has-tooltip" disabled data-tooltip="Provide all details to get a valuation.">Get Valuation</button>
                     <p id="attempts-counter" class="attempts-counter" style="display:none;"></p>
                 </div>
             </section>
 
-            <section class="why-us-section">
+            <section class="why-us-section" style="display: none;">
                 <h2>Why Choose GemVision AI?</h2>
                 <div class="why-us-grid">
                     <div class="why-us-card">
@@ -147,7 +239,7 @@
                 </form>
             </section>
 
-            <section id="showcase-gallery" class="showcase-gallery">
+            <section id="showcase-gallery" class="showcase-gallery" style="display: none;">
                 <h2>Showcase Gallery</h2>
                 <div id="showcase-grid" class="showcase-grid">
                     <!-- Gallery items will be dynamically inserted here -->
@@ -197,14 +289,11 @@
                     <div class="pricing-tier">
                         <h3>Free</h3>
                         <div class="price">$0<span></span></div>
-                        <p>Perfect for getting started. Register to get 3 free attempts.</p>
+                        <p>Perfect for getting started. Register to get 3 free valuations.</p>
                         <ul>
-                            <li>✔️ 3 free AI design generations</li>
-                            <li>✔️ Standard image quality</li>
-                            <li>✔️ Access to basic styles</li>
-                            <li>✔️ Watermarked images</li>
-                            <li>✔️ 3D viewer access</li>
-                            <li>✔️ Save designs to your gallery</li>
+                            <li>✔️ 3 free AI valuations</li>
+                            <li>✔️ Standard analysis model</li>
+                            <li>✔️ Parcel counting enabled</li>
                         </ul>
                         <button class="pricing-button" data-plan="free">Get Started</button>
                     </div>
@@ -213,10 +302,9 @@
                         <div class="price" data-price-usd="7" data-price-inr="599">$7<span>/month</span></div>
                         <p>For enthusiasts and professionals who need more power.</p>
                         <ul>
-                            <li>✔️ 50 AI design generations / month</li>
-                            <li>✔️ High-resolution images</li>
-                            <li>✔️ Full access to all jewelry styles</li>
-                            <li>✔️ No watermarks</li>
+                            <li>✔️ 50 AI valuations / month</li>
+                            <li>✔️ Advanced analysis model</li>
+                            <li>✔️ Save valuation history</li>
                         </ul>
                         <!-- 
                             IMPORTANT: Using a standard test Price ID from Stripe's documentation.
@@ -227,13 +315,12 @@
                     <div class="pricing-tier">
                         <h3>Elite</h3>
                         <div class="price" data-price-usd="14" data-price-inr="1199">$14<span>/month</span></div>
-                        <p>The ultimate toolkit for designers and businesses.</p>
+                        <p>The ultimate toolkit for high-volume traders and businesses.</p>
                         <ul>
-                            <li>✔️ Unlimited AI design generations</li>
-                            <li>✔️ 4K ultra-HD image downloads</li>
-                            <li>✔️ Export 3D models (.obj, .stl)</li>
+                            <li>✔️ Unlimited AI valuations</li>
+                            <li>✔️ Highest-tier analysis model</li>
+                            <li>✔️ Printable PDF reports</li>
                             <li>✔️ Priority customer support</li>
-                            <li>✔️ Early access to new features</li>
                         </ul>
                         <!-- 
                             IMPORTANT: Using a standard test Price ID from Stripe's documentation.
@@ -247,7 +334,7 @@
         </main>
         
         <footer>
-            <p>&copy; 2024 GemVision AI. Designs are for illustrative purposes.</p>
+            <p>&copy; 2024 GemVision AI. Valuations are for illustrative and informational purposes only and do not constitute a formal appraisal.</p>
         </footer>
 
         <!-- Default Avatar SVG -->
@@ -338,7 +425,7 @@
                         <p id="profile-plan" style="text-transform: capitalize;"></p>
                     </div>
                     <div class="profile-info-group">
-                        <label>Free Attempts Remaining</label>
+                        <label>Free Valuations Remaining</label>
                         <p id="profile-attempts"></p>
                     </div>
                     <hr class="modal-divider">
@@ -503,7 +590,7 @@
 
         <div id="loading-overlay" class="loading-overlay" style="display: none;">
             <div class="loader"></div>
-            <p id="loading-text">Weaving your designs...</p>
+            <p id="loading-text">Analyzing...</p>
         </div>
 
         <div id="camera-modal" class="modal-container" style="display: none;">

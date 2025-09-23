@@ -1,6 +1,6 @@
 {
-  "name": "GemVision AI",
-  "description": "An AI-powered jewelry design application that turns your gemstone photos into stunning, unique designs.",
+  "name": "Rough2Polished AI",
+  "description": "Your Rough Diamond valuation is just a click away - AI-powered App that makes Rough-Polished diamond valuations ",
   "requestFramePermissions": [
     "camera"
   ]
